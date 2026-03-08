@@ -832,9 +832,14 @@ app.post('/api/rewrite', apiLimiter, verifyApiKey, async (req, res) => {
         const response = {
             errcode: '0',
             errmsg: '',
-            data: rewrittenText,
-            like: similarity
+            data: rewrittenText
         };
+        
+        // 只有当 similarity 不为 null 时才添加 like 字段
+        // 避免小旋风无法解析 null 值
+        if (similarity !== null) {
+            response.like = similarity;
+        }
         
         // 只在开发环境或明确请求时返回元数据
         if (process.env.NODE_ENV === 'development' || req.query.debug === '1') {
@@ -859,6 +864,14 @@ app.post('/api/rewrite', apiLimiter, verifyApiKey, async (req, res) => {
         }));
         console.log(`[请求 ${requestId}] HTTP 状态码: 200`);
         console.log(`[请求 ${requestId}] Content-Type: application/json`);
+        
+        // 输出完整的响应体（用于调试小旋风问题）
+        const responseStr = JSON.stringify(response);
+        console.log(`[请求 ${requestId}] 完整响应体长度: ${responseStr.length} 字符`);
+        console.log(`[请求 ${requestId}] 完整响应体:`, responseStr.substring(0, 500));
+        if (responseStr.length > 500) {
+            console.log(`[请求 ${requestId}] ... (响应体太长，已截断)`);
+        }
         
         res.json(response);
         
