@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO API - Claude AI 文本改写服务</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            min-height: 150px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            margin-left: 10px;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .result-box {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .result-box.show {
+            display: block;
+        }
+        
+        .result-box h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .result-text {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.6;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .mode-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.3s;
+        }
+        
+        .mode-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+        
+        .mode-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .mode-card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .mode-card-id {
+            font-size: 12px;
+            color: #666;
+            background: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        .mode-card-desc {
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .mode-card-prompt {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #555;
+            max-height: 100px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 10px;
+        }
+        
+        .mode-card-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-anti-ai {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-builtin {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .copy-btn {
+            margin-top: 10px;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        
+        .api-docs {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        
+        .api-docs code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .api-docs pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 SEO API</h1>
+            <p>Claude AI 智能文本改写服务 - Node.js 版</p>
+        </div>
+        
+        <div class="card">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('rewrite')">文本改写</button>
+                <button class="tab" onclick="switchTab('modes')">模式管理</button>
+                <button class="tab" onclick="switchTab('config')">配置</button>
+                <button class="tab" onclick="switchTab('api')">API 文档</button>
+            </div>
+            
+            <!-- 文本改写标签页 -->
+            <div id="rewrite-tab" class="tab-content active">
+                <div id="alert-container"></div>
+                
+                <div class="form-group">
+                    <label for="input-text">输入文本</label>
+                    <textarea id="input-text" placeholder="请输入要改写的文本..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="rewrite-mode">改写模式</label>
+                    <select id="rewrite-mode">
+                        <option value="standard">标准改写 - 保持原意，改变表达</option>
+                        <option value="humanlike">仿人类写作 - 降低 AI 检测风险 ⭐</option>
+                        <option value="mixed">混合改写 - 多种技巧结合 ⭐</option>
+                        <option value="deep">深度重写 - 完全重构内容 ⭐</option>
+                        <option value="creative">创意改写 - 更生动有趣的表达</option>
+                        <option value="formal">正式改写 - 商务/学术风格</option>
+                        <option value="simple">简化改写 - 通俗易懂</option>
+                        <option value="translate_cn">翻译改写 - 通过翻译达到改写效果</option>
+                    </select>
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        ⭐ 标记的模式可以降低 AI 检测风险
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="model-select">模型选择</label>
+                    <select id="model-select">
+                        <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 - 最快速</option>
+                        <option value="claude-sonnet-4-5-20250929" selected>Claude Sonnet 4.5 - 推荐 ⭐</option>
+                        <option value="claude-sonnet-4-5-20250929-thinking">Claude Sonnet 4.5 Thinking - 深入分析</option>
+                        <option value="claude-sonnet-4-6">Claude Sonnet 4.6 - 最新版</option>
+                        <option value="claude-opus-4-5">Claude Opus 4.5 - 强大</option>
+                        <option value="claude-opus-4-5-20251101-thinking">Claude Opus 4.5 Thinking - 最强分析</option>
+                        <option value="claude-opus-4-6">Claude Opus 4.6 - 顶级</option>
+                    </select>
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        推荐使用 Claude Sonnet 4.5，性能和成本平衡最佳
+                    </small>
+                </div>
+                
+                <button class="btn btn-primary" onclick="rewriteText()">开始改写</button>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>正在改写中，请稍候...</p>
+                </div>
+                
+                <div class="result-box" id="result-box">
+                    <h3>改写结果</h3>
+                    <div class="result-text" id="result-text"></div>
+                    <button class="btn btn-secondary copy-btn" onclick="copyResult()">复制结果</button>
+                    
+                    <div class="stats" id="stats"></div>
+                </div>
+            </div>
+            
+            <!-- 模式管理标签页 -->
+            <div id="modes-tab" class="tab-content">
+                <div id="modes-alert"></div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0;">改写模式管理</h3>
+                    <button class="btn btn-primary" onclick="showAddModeForm()">+ 添加新模式</button>
+                </div>
+                
+                <!-- 添加/编辑模式表单 -->
+                <div id="mode-form" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 id="form-title">添加新模式</h4>
+                    
+                    <div class="form-group">
+                        <label for="mode-id">模式 ID（英文，如：mymode）</label>
+                        <input type="text" id="mode-id" placeholder="例如：xiaohongshu">
+                        <small style="color: #666;">只能使用英文字母和下划线，用于 API 调用</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="mode-name">模式名称（中文）</label>
+                        <input type="text" id="mode-name" placeholder="例如：小红书风格">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="mode-desc">简短描述</label>
+                        <input type="text" id="mode-desc" placeholder="例如：适合小红书平台发布">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="mode-anti-ai" style="width: auto; margin-right: 5px;">
+                            这是反 AI 检测模式
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="mode-prompt">改写指令（告诉 AI 如何改写）</label>
+                        <textarea id="mode-prompt" style="min-height: 200px;" placeholder="例如：
+请将以下文本改写成小红书风格：
+1. 使用emoji表情
+2. 分段清晰，每段不超过3行
+3. 添加个人体验和感受
+4. 使用网络用语
+5. 结尾加互动问题"></textarea>
+                        <small style="color: #666;">这是最重要的部分，决定了改写效果</small>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="saveModeConfig()">保存模式</button>
+                    <button class="btn btn-secondary" onclick="cancelModeForm()">取消</button>
+                </div>
+                
+                <!-- 模式列表 -->
+                <div id="modes-list">
+                    <p style="text-align: center; color: #666;">加载中...</p>
+                </div>
+            </div>
+            
+            <!-- 配置标签页 -->
+            <div id="config-tab" class="tab-content">
+                <div id="config-alert"></div>
+                
+                <div class="alert alert-info">
+                    <strong>你的 API Key：</strong><br>
+                    <code id="user-api-key" style="font-size: 14px; background: #fff; padding: 5px 10px; border-radius: 4px; display: inline-block; margin-top: 5px;">加载中...</code>
+                    <button class="btn btn-secondary" style="margin-left: 10px; padding: 5px 15px; font-size: 14px;" onclick="copyApiKey()">复制</button>
+                    <button class="btn btn-secondary" style="margin-left: 5px; padding: 5px 15px; font-size: 14px;" onclick="regenerateApiKey()">重新生成</button>
+                    <br><small style="margin-top: 5px; display: block;">在小旋风的 Authorization 字段填入此 API Key</small>
+                </div>
+                
+                <h4 style="margin-top: 30px; margin-bottom: 15px;">Claude API 配置</h4>
+                
+                <div class="form-group">
+                    <label for="claude-base-url">Claude API 地址</label>
+                    <input type="text" id="claude-base-url" placeholder="https://api.api123.icu">
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        默认使用 api123.icu 中转，也可以使用官方地址 https://api.anthropic.com 或其他中转
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="claude-api-key">Claude API Key</label>
+                    <input type="password" id="claude-api-key" placeholder="sk-ant-...">
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        请在 <a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a> 获取 API Key
+                    </small>
+                </div>
+                
+                <button class="btn btn-primary" onclick="saveClaudeConfig()">保存 Claude 配置</button>
+                
+                <h4 style="margin-top: 30px; margin-bottom: 15px;">默认调用配置</h4>
+                <p style="color: #666; margin-bottom: 15px;">
+                    当小旋风调用 API 时，如果不指定模型和模式参数，将使用以下默认配置
+                </p>
+                
+                <div class="form-group">
+                    <label for="default-model">默认模型</label>
+                    <select id="default-model">
+                        <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 - 最快速</option>
+                        <option value="claude-sonnet-4-5-20250929" selected>Claude Sonnet 4.5 - 推荐 ⭐</option>
+                        <option value="claude-sonnet-4-5-20250929-thinking">Claude Sonnet 4.5 Thinking - 深入分析</option>
+                        <option value="claude-sonnet-4-6">Claude Sonnet 4.6 - 最新版</option>
+                        <option value="claude-opus-4-5">Claude Opus 4.5 - 强大</option>
+                        <option value="claude-opus-4-5-20251101-thinking">Claude Opus 4.5 Thinking - 最强分析</option>
+                        <option value="claude-opus-4-6">Claude Opus 4.6 - 顶级</option>
+                    </select>
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        推荐使用 Claude Sonnet 4.5，性能和成本平衡最佳
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="default-mode">默认改写模式</label>
+                    <select id="default-mode">
+                        <!-- 模式列表将动态加载 -->
+                    </select>
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        ⭐ 标记的模式可以降低 AI 检测风险，🎯 标记的是 SEO 专用模式
+                    </small>
+                </div>
+                
+                <button class="btn btn-primary" onclick="saveDefaults()">保存默认配置</button>
+                
+                <div style="margin-top: 30px; padding-top: 30px; border-top: 2px solid #e0e0e0;">
+                    <h4>修改密码</h4>
+                    <div class="form-group">
+                        <label for="old-password">旧密码</label>
+                        <input type="password" id="old-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-password">新密码</label>
+                        <input type="password" id="new-password">
+                    </div>
+                    <button class="btn btn-secondary" onclick="changePassword()">修改密码</button>
+                </div>
+                
+                <div class="api-docs" style="margin-top: 20px;">
+                    <h4>当前配置状态</h4>
+                    <div id="config-status">加载中...</div>
+                </div>
+            </div>
+            
+            <!-- API 文档标签页 -->
+            <div id="api-tab" class="tab-content">
+                <h3>API 接口文档</h3>
+                
+                <div class="api-docs">
+                    <h4>1. 文本改写接口（兼容 5118 格式）</h4>
+                    <p><strong>POST</strong> <code>/api/rewrite</code></p>
+                    
+                    <p><strong>请求参数（支持两种格式）：</strong></p>
+                    
+                    <p>格式1 - 标准格式：</p>
+                    <pre>{
+  "text": "要改写的文本内容",
+  "mode": "standard",
+  "model": "claude-3-sonnet-20240229",
+  "sim": 1  // 可选，是否返回相似度
+}</pre>
+                    
+                    <p>格式2 - 5118 兼容格式：</p>
+                    <pre>{
+  "txt": "要改写的文本内容",
+  "retype": 1,
+  "sim": 1
+}</pre>
+                    
+                    <p><strong>返回格式（5118 兼容）：</strong></p>
+                    <pre>{
+  "errcode": "0",
+  "errmsg": "",
+  "data": "改写后的文本内容",
+  "like": "0.5521",  // 相似度（如果 sim=1）
+  "_meta": {
+    "duration": 2.5,
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 150
+    }
+  }
+}</pre>
+                    
+                    <p><strong>cURL 示例：</strong></p>
+                    <pre>curl -X POST http://localhost:8000/api/rewrite \
+  -H "Content-Type: application/json" \
+  -d '{"txt":"要改写的文本","sim":1}'</pre>
+                    
+                    <h4>2. 小旋风集成配置</h4>
+                    <p>在小旋风伪原创 API 配置中：</p>
+                    <pre>API 地址: http://your-server:8000/api/rewrite
+请求方式: POST
+请求参数: txt=[content]&sim=1
+返回格式: JSON
+提取路径: data</pre>
+                    
+                    <p><strong>小旋风配置示例：</strong></p>
+                    <ul>
+                        <li>API 接口: <code>http://your-server:8000/api/rewrite</code></li>
+                        <li>请求方式: POST</li>
+                        <li>参数名: <code>txt</code></li>
+                        <li>参数值: <code>[content]</code> (小旋风变量)</li>
+                        <li>返回提取: JSON 路径 <code>data</code></li>
+                    </ul>
+                    
+                    <h4>3. 错误码说明</h4>
+                    <ul>
+                        <li><code>0</code> - 成功</li>
+                        <li><code>200201</code> - 传进参数为空</li>
+                        <li><code>200500</code> - 内容长度超过5000字符</li>
+                        <li><code>100203</code> - API Key 无效</li>
+                        <li><code>100102</code> - 请求频率超限</li>
+                    </ul>
+                    
+                    <h4>3. 其他接口</h4>
+                    <ul>
+                        <li><code>GET /health</code> - 健康检查</li>
+                        <li><code>GET /api/models</code> - 获取支持的模型列表</li>
+                        <li><code>GET /api/docs</code> - API 文档（JSON）</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let currentUser = null;
+        let sessionToken = null;
+        
+        // 检查登录状态
+        async function checkAuth() {
+            sessionToken = localStorage.getItem('sessionToken');
+            
+            if (!sessionToken) {
+                window.location.href = '/login.html';
+                return false;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: {
+                        'X-Session-Token': sessionToken
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    localStorage.removeItem('sessionToken');
+                    window.location.href = '/login.html';
+                    return false;
+                }
+                
+                currentUser = data.user;
+                updateUserInfo();
+                return true;
+                
+            } catch (error) {
+                console.error('认证失败:', error);
+                window.location.href = '/login.html';
+                return false;
+            }
+        }
+        
+        // 更新用户信息显示
+        function updateUserInfo() {
+            const userInfoHtml = `
+                <div style="text-align: right; padding: 10px 20px; background: rgba(255,255,255,0.1); color: white;">
+                    <span>👤 ${currentUser.username}</span>
+                    ${currentUser.role === 'admin' ? '<span style="margin-left: 10px; background: #ffc107; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 12px;">管理员</span>' : ''}
+                    <button onclick="logout()" style="margin-left: 15px; padding: 5px 15px; border: none; border-radius: 4px; background: rgba(255,255,255,0.2); color: white; cursor: pointer;">退出登录</button>
+                </div>
+            `;
+            
+            // 在 header 后面插入用户信息
+            const header = document.querySelector('.header');
+            if (header && !document.querySelector('.user-info')) {
+                const userInfoDiv = document.createElement('div');
+                userInfoDiv.className = 'user-info';
+                userInfoDiv.innerHTML = userInfoHtml;
+                header.parentNode.insertBefore(userInfoDiv, header.nextSibling);
+            }
+        }
+        
+        // 退出登录
+        async function logout() {
+            if (!confirm('确定要退出登录吗？')) {
+                return;
+            }
+            
+            try {
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'X-Session-Token': sessionToken
+                    }
+                });
+            } catch (error) {
+                console.error('退出失败:', error);
+            }
+            
+            localStorage.removeItem('sessionToken');
+            localStorage.removeItem('username');
+            localStorage.removeItem('role');
+            window.location.href = '/login.html';
+        }
+        
+        // 带认证的 fetch
+        async function authFetch(url, options = {}) {
+            options.headers = options.headers || {};
+            options.headers['X-Session-Token'] = sessionToken;
+            return fetch(url, options);
+        }
+        
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabName === 'config') {
+                loadConfig();
+            }
+        }
+        
+        function showAlert(message, type = 'info', containerId = 'alert-container') {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+        
+        async function rewriteText() {
+            const text = document.getElementById('input-text').value.trim();
+            const mode = document.getElementById('rewrite-mode').value;
+            const model = document.getElementById('model-select').value;
+            
+            if (!text) {
+                showAlert('请输入要改写的文本', 'error');
+                return;
+            }
+            
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('result-box').classList.remove('show');
+            
+            try {
+                const response = await fetch('/api/rewrite', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': currentUser.apiKey
+                    },
+                    body: JSON.stringify({ text, mode, model, sim: 1 })
+                });
+                
+                const data = await response.json();
+                
+                // 检查 5118 格式的错误
+                if (data.errcode !== '0') {
+                    throw new Error(data.errmsg || '改写失败');
+                }
+                
+                document.getElementById('result-text').textContent = data.data;
+                
+                const meta = data._meta || {};
+                document.getElementById('stats').innerHTML = `
+                    <div class="stat-item">
+                        <div class="stat-label">耗时</div>
+                        <div class="stat-value">${meta.duration ? meta.duration.toFixed(2) : '-'}s</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">相似度</div>
+                        <div class="stat-value">${data.like ? (parseFloat(data.like) * 100).toFixed(1) + '%' : '-'}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">输入 Tokens</div>
+                        <div class="stat-value">${meta.usage ? meta.usage.input_tokens : '-'}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">输出 Tokens</div>
+                        <div class="stat-value">${meta.usage ? meta.usage.output_tokens : '-'}</div>
+                    </div>
+                `;
+                
+                document.getElementById('result-box').classList.add('show');
+                showAlert('改写成功！', 'success');
+                
+            } catch (error) {
+                showAlert(error.message, 'error');
+            } finally {
+                document.getElementById('loading').classList.remove('show');
+            }
+        }
+        
+        function copyResult() {
+            const text = document.getElementById('result-text').textContent;
+            
+            // 方法 1: 使用现代 Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showAlert('已复制到剪贴板', 'success');
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    // 如果失败，尝试备用方法
+                    fallbackCopy(text);
+                });
+            } else {
+                // 浏览器不支持 Clipboard API，使用备用方法
+                fallbackCopy(text);
+            }
+        }
+        
+        // 备用复制方法（兼容旧浏览器）
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showAlert('已复制到剪贴板', 'success');
+                } else {
+                    showAlert('复制失败，请手动复制', 'error');
+                }
+            } catch (err) {
+                console.error('复制失败:', err);
+                showAlert('复制失败，请手动复制', 'error');
+            }
+            
+            document.body.removeChild(textarea);
+        }
+        
+        async function saveConfig() {
+            const apiKey = document.getElementById('api-key').value.trim();
+            
+            if (!apiKey) {
+                showAlert('请输入 API Key', 'error', 'config-alert');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: apiKey })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '配置失败');
+                }
+                
+                showAlert('配置保存成功！', 'success', 'config-alert');
+                loadConfig();
+                
+            } catch (error) {
+                showAlert(error.message, 'error', 'config-alert');
+            }
+        }
+        
+        // 加载改写模式列表
+        async function loadModes() {
+            try {
+                const response = await fetch('/api/modes');
+                const data = await response.json();
+                
+                const modesList = document.getElementById('modes-list');
+                
+                if (!modesList) {
+                    return;
+                }
+                
+                if (data.modes && data.modes.length > 0) {
+                    modesList.innerHTML = data.modes.map(mode => `
+                        <div class="mode-card">
+                            <div class="mode-card-header">
+                                <div>
+                                    <span class="mode-card-title">${mode.name}</span>
+                                    <span class="mode-card-id">${mode.id}</span>
+                                    ${mode.antiAI ? '<span class="badge badge-anti-ai">反AI检测</span>' : ''}
+                                    ${mode.builtin ? '<span class="badge badge-builtin">内置</span>' : ''}
+                                </div>
+                            </div>
+                            <div class="mode-card-desc">${mode.description}</div>
+                            <div class="mode-card-prompt">${mode.prompt || '(无提示词)'}</div>
+                            <div class="mode-card-actions">
+                                <button class="btn btn-secondary btn-small" onclick="editMode('${mode.id}')">编辑</button>
+                                ${!mode.builtin ? `<button class="btn btn-secondary btn-small" onclick="deleteMode('${mode.id}')">删除</button>` : ''}
+                                <button class="btn btn-secondary btn-small" onclick="testMode('${mode.id}')">测试</button>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    // 更新改写页面的下拉框
+                    updateModeSelect(data.modes);
+                } else {
+                    modesList.innerHTML = '<p style="text-align: center; color: #666;">暂无模式</p>';
+                }
+                
+            } catch (error) {
+                document.getElementById('modes-list').innerHTML = '<p style="color: red;">加载失败</p>';
+            }
+        }
+        
+        // 更新改写页面的模式下拉框
+        function updateModeSelect(modes) {
+            const select = document.getElementById('rewrite-mode');
+            select.innerHTML = modes.map(mode => 
+                `<option value="${mode.id}">${mode.name} - ${mode.description}${mode.antiAI ? ' ⭐' : ''}</option>`
+            ).join('');
+        }
+        
+        // 显示添加模式表单
+        function showAddModeForm() {
+            document.getElementById('mode-form').style.display = 'block';
+            document.getElementById('form-title').textContent = '添加新模式';
+            document.getElementById('mode-id').value = '';
+            document.getElementById('mode-id').disabled = false;
+            document.getElementById('mode-name').value = '';
+            document.getElementById('mode-desc').value = '';
+            document.getElementById('mode-anti-ai').checked = false;
+            document.getElementById('mode-prompt').value = '';
+        }
+        
+        // 编辑模式
+        async function editMode(modeId) {
+            try {
+                const response = await fetch(`/api/modes/${modeId}`);
+                const mode = await response.json();
+                
+                document.getElementById('mode-form').style.display = 'block';
+                document.getElementById('form-title').textContent = '编辑模式';
+                document.getElementById('mode-id').value = mode.id;
+                document.getElementById('mode-id').disabled = true;
+                document.getElementById('mode-name').value = mode.name;
+                document.getElementById('mode-desc').value = mode.description;
+                document.getElementById('mode-anti-ai').checked = mode.antiAI || false;
+                document.getElementById('mode-prompt').value = mode.prompt || '';
+                
+                // 滚动到表单
+                document.getElementById('mode-form').scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                showAlert('加载模式失败', 'error', 'modes-alert');
+            }
+        }
+        
+        // 保存模式配置
+        async function saveModeConfig() {
+            const modeId = document.getElementById('mode-id').value.trim();
+            const modeName = document.getElementById('mode-name').value.trim();
+            const modeDesc = document.getElementById('mode-desc').value.trim();
+            const antiAI = document.getElementById('mode-anti-ai').checked;
+            const prompt = document.getElementById('mode-prompt').value.trim();
+            
+            if (!modeId || !modeName || !prompt) {
+                showAlert('请填写所有必填项', 'error', 'modes-alert');
+                return;
+            }
+            
+            // 验证 ID 格式
+            if (!/^[a-z_]+$/.test(modeId)) {
+                showAlert('模式 ID 只能包含小写字母和下划线', 'error', 'modes-alert');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/modes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: modeId,
+                        name: modeName,
+                        description: modeDesc,
+                        antiAI: antiAI,
+                        prompt: prompt
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('保存成功！', 'success', 'modes-alert');
+                    cancelModeForm();
+                    loadModes();
+                } else {
+                    showAlert(data.error || '保存失败', 'error', 'modes-alert');
+                }
+                
+            } catch (error) {
+                showAlert('保存失败: ' + error.message, 'error', 'modes-alert');
+            }
+        }
+        
+        // 取消表单
+        function cancelModeForm() {
+            document.getElementById('mode-form').style.display = 'none';
+        }
+        
+        // 删除模式
+        async function deleteMode(modeId) {
+            if (!confirm(`确定要删除模式 "${modeId}" 吗？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/modes/${modeId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('删除成功！', 'success', 'modes-alert');
+                    loadModes();
+                } else {
+                    showAlert(data.error || '删除失败', 'error', 'modes-alert');
+                }
+                
+            } catch (error) {
+                showAlert('删除失败: ' + error.message, 'error', 'modes-alert');
+            }
+        }
+        
+        // 测试模式
+        function testMode(modeId) {
+            // 切换到改写标签页
+            switchTab('rewrite');
+            
+            // 设置模式
+            document.getElementById('rewrite-mode').value = modeId;
+            
+            // 设置示例文本
+            if (!document.getElementById('input-text').value.trim()) {
+                document.getElementById('input-text').value = '人工智能技术正在快速发展，深刻改变着我们的生活方式。从智能手机到自动驾驶，AI 已经渗透到生活的方方面面。';
+            }
+            
+            // 滚动到顶部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        // 复制 API Key
+        function copyApiKey() {
+            const apiKey = document.getElementById('user-api-key').textContent;
+            
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(apiKey).then(() => {
+                    showAlert('API Key 已复制到剪贴板', 'success', 'config-alert');
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    fallbackCopy(apiKey);
+                });
+            } else {
+                fallbackCopy(apiKey);
+            }
+        }
+        
+        // 重新生成 API Key
+        async function regenerateApiKey() {
+            if (!confirm('重新生成后，旧的 API Key 将立即失效。确定要继续吗？')) {
+                return;
+            }
+            
+            try {
+                const response = await authFetch('/api/users/regenerate-key', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('user-api-key').textContent = data.apiKey;
+                    showAlert('API Key 已重新生成！请更新小旋风配置', 'success', 'config-alert');
+                } else {
+                    showAlert(data.error || '生成失败', 'error', 'config-alert');
+                }
+                
+            } catch (error) {
+                showAlert('生成失败: ' + error.message, 'error', 'config-alert');
+            }
+        }
+        
+        // 保存 Claude API Key
+        async function saveClaudeApiKey() {
+            const claudeApiKey = document.getElementById('claude-api-key').value.trim();
+            
+            if (!claudeApiKey) {
+                showAlert('请输入 Claude API Key', 'error', 'config-alert');
+                return;
+            }
+            
+            try {
+                const response = await authFetch('/api/users/claude-key', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ claudeApiKey })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('Claude API Key 保存成功！', 'success', 'config-alert');
+                    document.getElementById('claude-api-key').value = '';
+                    loadConfig();
+                } else {
+                    showAlert(data.error || '保存失败', 'error', 'config-alert');
+                }
+                
+            } catch (error) {
+                showAlert('保存失败: ' + error.message, 'error', 'config-alert');
+            }
+        }
+        
+        // 保存 Claude 配置（包括 Base URL 和 API Key）
+        async function saveClaudeConfig() {
+            const claudeBaseURL = document.getElementById('claude-base-url').value.trim();
+            const claudeApiKey = document.getElementById('claude-api-key').value.trim();
+            
+            if (!claudeBaseURL && !claudeApiKey) {
+                showAlert('请至少填写一项配置', 'error', 'config-alert');
+                return;
+            }
+            
+            try {
+                // 保存 Base URL
+                if (claudeBaseURL) {
+                    const urlResponse = await authFetch('/api/users/claude-baseurl', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ claudeBaseURL })
+                    });
+                    
+                    const urlData = await urlResponse.json();
+                    if (!urlData.success) {
+                        showAlert(urlData.error || 'Base URL 保存失败', 'error', 'config-alert');
+                        return;
+                    }
+                }
+                
+                // 保存 API Key
+                if (claudeApiKey) {
+                    const keyResponse = await authFetch('/api/users/claude-key', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ claudeApiKey })
+                    });
+                    
+                    const keyData = await keyResponse.json();
+                    if (!keyData.success) {
+                        showAlert(keyData.error || 'API Key 保存失败', 'error', 'config-alert');
+                        return;
+                    }
+                }
+                
+                showAlert('Claude 配置保存成功！', 'success', 'config-alert');
+                document.getElementById('claude-api-key').value = '';
+                loadConfig();
+                
+            } catch (error) {
+                showAlert('保存失败: ' + error.message, 'error', 'config-alert');
+            }
+        }
+        
+        // 保存默认配置
+        async function saveDefaults() {
+            const defaultModel = document.getElementById('default-model').value;
+            const defaultMode = document.getElementById('default-mode').value;
+            
+            try {
+                const response = await authFetch('/api/users/defaults', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ defaultModel, defaultMode })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('默认配置保存成功！小旋风调用时将使用这些默认值', 'success', 'config-alert');
+                    loadConfig();
+                } else {
+                    showAlert(data.error || '保存失败', 'error', 'config-alert');
+                }
+                
+            } catch (error) {
+                showAlert('保存失败: ' + error.message, 'error', 'config-alert');
+            }
+        }
+        
+        // 修改密码
+        async function changePassword() {
+            const oldPassword = document.getElementById('old-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            
+            if (!oldPassword || !newPassword) {
+                showAlert('请输入旧密码和新密码', 'error', 'config-alert');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showAlert('新密码长度至少6位', 'error', 'config-alert');
+                return;
+            }
+            
+            try {
+                const response = await authFetch('/api/auth/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ oldPassword, newPassword })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('密码修改成功！', 'success', 'config-alert');
+                    document.getElementById('old-password').value = '';
+                    document.getElementById('new-password').value = '';
+                } else {
+                    showAlert(data.error || '修改失败', 'error', 'config-alert');
+                }
+                
+            } catch (error) {
+                showAlert('修改失败: ' + error.message, 'error', 'config-alert');
+            }
+        }
+        
+        // 加载配置
+        async function loadConfig() {
+            try {
+                // 先加载模式列表
+                await loadDefaultModeOptions();
+                
+                const response = await authFetch('/api/auth/me');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 更新 API Key 显示
+                    const apiKeyElement = document.getElementById('user-api-key');
+                    if (apiKeyElement) {
+                        apiKeyElement.textContent = data.user.apiKey;
+                    }
+                    
+                    // 更新 Base URL 输入框
+                    const baseURLElement = document.getElementById('claude-base-url');
+                    if (baseURLElement) {
+                        baseURLElement.value = data.user.claudeBaseURL || 'https://api.api123.icu';
+                    }
+                    
+                    // 更新默认模型选择
+                    const defaultModelElement = document.getElementById('default-model');
+                    if (defaultModelElement && data.user.defaultModel) {
+                        defaultModelElement.value = data.user.defaultModel;
+                    }
+                    
+                    // 更新默认模式选择
+                    const defaultModeElement = document.getElementById('default-mode');
+                    if (defaultModeElement && data.user.defaultMode) {
+                        defaultModeElement.value = data.user.defaultMode;
+                    }
+                    
+                    // 更新配置状态
+                    const statusElement = document.getElementById('config-status');
+                    if (statusElement) {
+                        statusElement.innerHTML = `
+                            <p><strong>用户名：</strong> ${data.user.username}</p>
+                            <p><strong>角色：</strong> ${data.user.role === 'admin' ? '管理员' : '普通用户'}</p>
+                            <p><strong>API Key：</strong> ${data.user.apiKey.substring(0, 15)}...</p>
+                            <p><strong>Claude API Key：</strong> ${data.user.claudeApiKey}</p>
+                            <p><strong>Claude API 地址：</strong> ${data.user.claudeBaseURL || 'https://api.api123.icu'}</p>
+                            <p><strong>默认模型：</strong> ${data.user.defaultModel || 'claude-sonnet-4-5-20250929'}</p>
+                            <p><strong>默认模式：</strong> ${data.user.defaultMode || 'seo_spider'}</p>
+                        `;
+                    }
+                }
+                
+            } catch (error) {
+                const statusElement = document.getElementById('config-status');
+                if (statusElement) {
+                    statusElement.innerHTML = '<p style="color: red;">加载配置失败</p>';
+                }
+            }
+        }
+        
+        // 加载默认模式选项
+        async function loadDefaultModeOptions() {
+            try {
+                const response = await fetch('/api/modes');
+                const data = await response.json();
+                
+                const defaultModeElement = document.getElementById('default-mode');
+                if (defaultModeElement && data.modes) {
+                    defaultModeElement.innerHTML = data.modes.map(mode => {
+                        let badge = '';
+                        if (mode.antiAI) badge += ' ⭐';
+                        if (mode.seo) badge += ' 🎯';
+                        return `<option value="${mode.id}">${mode.name} - ${mode.description}${badge}</option>`;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('加载模式列表失败:', error);
+            }
+        }
+        
+        // 页面加载时执行
+        window.onload = async function() {
+            // 先检查登录状态
+            const isAuthenticated = await checkAuth();
+            if (!isAuthenticated) {
+                return;
+            }
+            
+            // 加载配置和模式
+            loadConfig();
+            loadModes();
+        };
+    </script>
+</body>
+</html>

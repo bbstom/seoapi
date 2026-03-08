@@ -1,0 +1,13 @@
+{
+  "admin": {
+    "username": "admin",
+    "password": "$2b$10$ZNSFNTZ10KvAomfKYGbpJO9E0CTk7eBnUvD5Gt1OJoyWLgWEE0Sme",
+    "apiKey": "sk_f7747efeefece9fbeb79bfecd825e01ff427c2f343acd398f6f3713469906d00",
+    "role": "admin",
+    "createdAt": "2026-03-08T03:22:00.276Z",
+    "claudeApiKey": "sk-M39fZlDSgGyu0tPuqLAf0WzmcPSzJG7xhSFrGhzhVq3NvIiW",
+    "claudeBaseURL": "https://api123.icu",
+    "defaultModel": "claude-sonnet-4-5-20250929",
+    "defaultMode": "seo_fast"
+  }
+}

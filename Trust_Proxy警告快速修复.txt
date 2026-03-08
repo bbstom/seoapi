@@ -1,0 +1,161 @@
+========================================
+Trust Proxy 警告快速修复
+========================================
+
+错误信息：
+ValidationError: The Express 'trust proxy' setting is true,
+which allows anyone to trivially bypass IP-based rate limiting.
+
+========================================
+✅ 已修复（设置环境变量即可）
+========================================
+
+修复方案：根据环境自动配置
+- 开发环境：trust proxy = loopback
+- 生产环境：trust proxy = 1
+
+========================================
+🔧 本地开发（Windows）
+========================================
+
+方法 1：创建 .env 文件（推荐）
+echo NODE_ENV=development > .env
+node server.js
+
+方法 2：PowerShell 设置
+$env:NODE_ENV="development"
+node server.js
+
+方法 3：CMD 设置
+set NODE_ENV=development
+node server.js
+
+========================================
+🚀 服务器部署（Linux）
+========================================
+
+方法 1：创建 .env 文件（推荐）
+echo "NODE_ENV=production" > .env
+pm2 restart seoapi
+
+方法 2：PM2 启动时设置
+NODE_ENV=production pm2 start server.js --name seoapi
+
+方法 3：PM2 配置文件
+# 创建 ecosystem.config.js
+pm2 start ecosystem.config.js --env production
+
+========================================
+🧪 验证配置
+========================================
+
+启动服务后查看日志：
+
+开发环境应显示：
+Trust proxy: loopback (开发环境)
+
+生产环境应显示：
+Trust proxy: 1 (生产环境)
+
+========================================
+📋 .env 文件示例
+========================================
+
+开发环境（本地测试）：
+NODE_ENV=development
+PORT=8000
+CLAUDE_API_KEY=your_key_here
+CLAUDE_BASE_URL=https://api.api123.icu
+
+生产环境（服务器部署）：
+NODE_ENV=production
+PORT=8000
+CLAUDE_API_KEY=your_key_here
+CLAUDE_BASE_URL=https://api.api123.icu
+
+========================================
+🔍 环境差异
+========================================
+
+开发环境 (NODE_ENV=development)：
+- Trust Proxy: loopback
+- 只信任本地回环地址
+- 适合本地测试
+- 不会触发警告
+
+生产环境 (NODE_ENV=production)：
+- Trust Proxy: 1
+- 只信任 1 层代理（Nginx）
+- 适合服务器部署
+- 更安全可靠
+
+========================================
+⚠️ 常见问题
+========================================
+
+Q: 本地测试时出现警告？
+A: 设置 NODE_ENV=development
+
+Q: 生产环境速率限制不工作？
+A: 设置 NODE_ENV=production
+
+Q: 如何查看当前环境？
+A: 查看启动日志中的 "Trust proxy" 信息
+
+Q: 可以不设置 NODE_ENV 吗？
+A: 可以，默认为开发环境
+
+========================================
+🎯 推荐配置
+========================================
+
+本地开发：
+1. 创建 .env 文件
+2. 设置 NODE_ENV=development
+3. 运行 node server.js
+
+服务器部署：
+1. 创建 .env 文件
+2. 设置 NODE_ENV=production
+3. 使用 PM2 启动
+
+========================================
+✅ 配置检查清单
+========================================
+
+本地开发：
+□ 已创建 .env 文件
+□ 已设置 NODE_ENV=development
+□ 启动日志显示 "loopback (开发环境)"
+□ 无安全警告
+
+服务器部署：
+□ 已创建 .env 文件
+□ 已设置 NODE_ENV=production
+□ 启动日志显示 "1 (生产环境)"
+□ 速率限制正常工作
+□ 无安全警告
+
+========================================
+📚 详细文档
+========================================
+
+查看完整配置指南：
+- 环境配置说明.md
+- 反向代理配置说明.md
+- Linux部署教程.md
+
+========================================
+🎉 总结
+========================================
+
+✅ 代码已优化
+✅ 自动适配环境
+✅ 设置环境变量即可
+
+本地开发：NODE_ENV=development
+服务器部署：NODE_ENV=production
+
+简单配置，安全可靠！🚀
+
+========================================
