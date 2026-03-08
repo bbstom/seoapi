@@ -7,6 +7,8 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const Anthropic = require('@anthropic-ai/sdk');
+const https = require('https');
+const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -249,6 +251,97 @@ let config = {
 const REWRITE_PROMPTS = {};
 for (const [key, value] of Object.entries(rewriteModesConfig)) {
     REWRITE_PROMPTS[key] = value.prompt;
+}
+
+// 检测 API 类型（Anthropic 或 OpenAI 兼容）
+function detectAPIType(baseURL) {
+    // OpenAI 兼容接口特征：包含 /v1 或特定域名
+    const openaiCompatibleDomains = ['fucaixie.xyz', 'api123.icu'];
+    const url = baseURL.toLowerCase();
+    
+    // 检查是否是 OpenAI 兼容接口
+    if (url.includes('/v1') || openaiCompatibleDomains.some(domain => url.includes(domain))) {
+        return 'openai';
+    }
+    
+    // 默认使用 Anthropic
+    return 'anthropic';
+}
+
+// OpenAI 兼容接口调用
+async function callOpenAICompatible(baseURL, apiKey, model, prompt) {
+    return new Promise((resolve, reject) => {
+        // 确保 baseURL 包含 /v1
+        let apiURL = baseURL;
+        if (!apiURL.endsWith('/v1') && !apiURL.includes('/v1/')) {
+            apiURL = apiURL.replace(/\/$/, '') + '/v1';
+        }
+        
+        const postData = JSON.stringify({
+            model: model,
+            messages: [
+                { role: 'user', content: prompt }
+            ],
+            max_tokens: 4096
+        });
+        
+        const url = new URL(`${apiURL}/chat/completions`);
+        const isHttps = url.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        
+        const options = {
+            hostname: url.hostname,
+            port: url.port || (isHttps ? 443 : 80),
+            path: url.pathname + url.search,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Length': Buffer.byteLength(postData)
+            }
+        };
+        
+        const req = httpModule.request(options, (res) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            
+            res.on('end', () => {
+                try {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        const response = JSON.parse(data);
+                        
+                        // 转换为 Anthropic 格式
+                        const result = {
+                            content: [
+                                { text: response.choices[0].message.content }
+                            ],
+                            model: response.model,
+                            usage: {
+                                input_tokens: response.usage?.prompt_tokens || 0,
+                                output_tokens: response.usage?.completion_tokens || 0
+                            }
+                        };
+                        
+                        resolve(result);
+                    } else {
+                        reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                    }
+                } catch (error) {
+                    reject(new Error(`解析响应失败: ${error.message}`));
+                }
+            });
+        });
+        
+        req.on('error', (error) => {
+            reject(error);
+        });
+        
+        req.write(postData);
+        req.end();
+    });
 }
 
 // 获取 Claude 客户端
@@ -775,28 +868,40 @@ app.post('/api/rewrite', apiLimiter, verifyApiKey, async (req, res) => {
         const baseURL = req.user.claudeBaseURL || 'https://api.api123.icu';
         console.log(`[请求 ${requestId}] Claude API 地址: ${baseURL}`);
         
-        const client = new Anthropic({
-            apiKey: req.user.claudeApiKey,
-            baseURL: baseURL
-        });
+        // 检测 API 类型
+        const apiType = detectAPIType(baseURL);
+        console.log(`[请求 ${requestId}] API 类型: ${apiType === 'openai' ? 'OpenAI 兼容' : 'Anthropic'}`);
         
         // 构建提示词
         const prompt = `${REWRITE_PROMPTS[mode] || REWRITE_PROMPTS.standard}\n\n原文：\n${text}\n\n改写后的文本：`;
         console.log(`[请求 ${requestId}] 提示词长度: ${prompt.length} 字符`);
         
-        // 调用 Claude API
-        console.log(`[请求 ${requestId}] 🚀 开始调用 Claude API...`);
+        // 调用 API
+        console.log(`[请求 ${requestId}] 🚀 开始调用 API...`);
         const apiStartTime = Date.now();
-        const message = await client.messages.create({
-            model: model,
-            max_tokens: 4096,
-            messages: [
-                { role: 'user', content: prompt }
-            ]
-        });
+        
+        let message;
+        if (apiType === 'openai') {
+            // 使用 OpenAI 兼容接口
+            message = await callOpenAICompatible(baseURL, req.user.claudeApiKey, model, prompt);
+        } else {
+            // 使用 Anthropic 接口
+            const client = new Anthropic({
+                apiKey: req.user.claudeApiKey,
+                baseURL: baseURL
+            });
+            
+            message = await client.messages.create({
+                model: model,
+                max_tokens: 4096,
+                messages: [
+                    { role: 'user', content: prompt }
+                ]
+            });
+        }
         
         const apiDuration = (Date.now() - apiStartTime) / 1000;
-        console.log(`[请求 ${requestId}] ✓ Claude API 调用成功，耗时: ${apiDuration.toFixed(2)}秒`);
+        console.log(`[请求 ${requestId}] ✓ API 调用成功，耗时: ${apiDuration.toFixed(2)}秒`);
         
         const duration = (Date.now() - startTime) / 1000;
         
