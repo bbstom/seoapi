@@ -818,8 +818,26 @@ app.post('/api/rewrite', apiLimiter, verifyApiKey, async (req, res) => {
         // 移除 BOM 和其他不可见字符
         const originalLength = rewrittenText.length;
         rewrittenText = rewrittenText.replace(/^\uFEFF/, '').trim();
-        if (originalLength !== rewrittenText.length) {
+        
+        // 如果请求参数包含 compact=1，压缩文本（移除多余空格和换行）
+        // 这可以减小响应体积，适用于有大小限制的客户端（如小旋风）
+        if (req.body.compact === '1' || req.body.compact === 1) {
+            // 移除多余的空格和换行
+            rewrittenText = rewrittenText
+                .replace(/\s+/g, ' ')  // 多个空格替换为单个空格
+                .replace(/\n+/g, '')   // 移除换行
+                .trim();
+            console.log(`[请求 ${requestId}] 🗜️ 文本已压缩，长度从 ${originalLength} 变为 ${rewrittenText.length}`);
+        } else if (originalLength !== rewrittenText.length) {
             console.log(`[请求 ${requestId}] ⚠️ 清理了特殊字符，长度从 ${originalLength} 变为 ${rewrittenText.length}`);
+        }
+        
+        // 检查响应体大小，如果超过 1200 字符，给出警告
+        // 小旋风可能对响应体大小有限制（约 1300-1500 字符）
+        if (rewrittenText.length > 1200) {
+            console.log(`[请求 ${requestId}] ⚠️ 警告: 响应文本较长 (${rewrittenText.length} 字符)`);
+            console.log(`[请求 ${requestId}] 💡 建议: 在小旋风中限制采集文本长度为 800-1000 字符`);
+            console.log(`[请求 ${requestId}] 💡 或在 post 格式中添加 compact=1 参数压缩输出`);
         }
         
         console.log(`[请求 ${requestId}] ✓ 改写完成 - 总耗时: ${duration.toFixed(2)}秒, 输出长度: ${rewrittenText.length}`);
