@@ -13,7 +13,7 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            background: #f8fafc;
+            background: #f5f7fa;
             min-height: 100vh;
         }
         
@@ -23,11 +23,11 @@
             min-height: 100vh;
         }
         
-        /* 左侧边栏 - easypay 风格 */
+        /* 左侧边栏 */
         .sidebar {
             width: 240px;
-            background: white;
-            border-right: 1px solid #e2e8f0;
+            background: #1a1f36;
+            color: #fff;
             display: flex;
             flex-direction: column;
             position: fixed;
@@ -38,122 +38,99 @@
         }
         
         .sidebar-header {
-            height: 64px;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            flex-shrink: 0;
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         
         .logo {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
         
         .logo-icon {
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(135deg, #00A3FF 0%, #0284c7 100%);
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
-            font-weight: 900;
-            color: white;
+            font-size: 18px;
+            font-weight: bold;
         }
         
         .logo-text h1 {
             font-size: 16px;
-            font-weight: 900;
-            color: #1e293b;
-            letter-spacing: 0.3px;
+            font-weight: 600;
+            margin-bottom: 2px;
         }
         
         .logo-text p {
-            font-size: 10px;
-            color: #64748b;
-            font-weight: 500;
-            margin-top: 2px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
         }
         
         .sidebar-menu {
             flex: 1;
-            padding: 12px;
+            padding: 20px 0;
             overflow-y: auto;
         }
         
-        .sidebar-menu::-webkit-scrollbar {
-            width: 4px;
-        }
-        
-        .sidebar-menu::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 2px;
-        }
-        
         .menu-item {
+            padding: 12px 20px;
+            margin: 2px 12px;
+            cursor: pointer;
+            transition: all 0.3s;
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
-            margin-bottom: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #64748b;
+            gap: 12px;
+            color: rgba(255,255,255,0.7);
             text-decoration: none;
             border-radius: 8px;
             font-size: 14px;
-            font-weight: 700;
         }
         
         .menu-item:hover {
-            background: #f1f5f9;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
         }
         
         .menu-item.active {
-            background: #00A3FF;
-            color: white;
-            box-shadow: 0 4px 12px rgba(0, 163, 255, 0.2);
+            background: rgba(102, 126, 234, 0.2);
+            color: #fff;
         }
         
         .menu-item-icon {
-            font-size: 20px;
+            font-size: 18px;
             width: 20px;
             text-align: center;
-            flex-shrink: 0;
         }
         
         .sidebar-footer {
-            padding: 12px;
-            border-top: 1px solid #e2e8f0;
-            flex-shrink: 0;
+            padding: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
         }
         
         .user-card {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
-            background: #f8fafc;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
             border-radius: 8px;
-            border: 1px solid #e2e8f0;
         }
         
         .user-avatar {
             width: 36px;
             height: 36px;
-            background: linear-gradient(135deg, #00A3FF 0%, #0284c7 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 14px;
-            font-weight: 900;
-            color: white;
+            font-weight: 600;
         }
         
         .user-info-text {
@@ -162,15 +139,13 @@
         
         .user-name {
             font-size: 13px;
-            font-weight: 700;
-            color: #1e293b;
+            font-weight: 500;
+            margin-bottom: 2px;
         }
         
         .user-role {
             font-size: 11px;
-            color: #64748b;
-            font-weight: 500;
-            margin-top: 2px;
+            color: rgba(255,255,255,0.5);
         }
         
         /* 主内容区 */
@@ -179,76 +154,54 @@
             margin-left: 240px;
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
         }
         
-        /* 顶部栏 - easypay 风格 */
+        /* 顶部栏 */
         .topbar {
             height: 64px;
             background: white;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e5e7eb;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 24px;
+            padding: 0 30px;
             position: sticky;
             top: 0;
             z-index: 90;
         }
         
         .topbar-left h2 {
-            font-size: 20px;
-            font-weight: 900;
-            color: #1e293b;
-        }
-        
-        .topbar-left p {
-            font-size: 12px;
-            color: #64748b;
-            margin-top: 2px;
-            font-weight: 500;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
         }
         
         .topbar-right {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 15px;
         }
         
         .topbar-btn {
             padding: 8px 16px;
-            background: #ef4444;
+            background: #f5f5f5;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
-            color: white;
-            font-weight: 700;
-            transition: all 0.2s;
+            font-size: 13px;
+            color: #666;
+            transition: all 0.3s;
         }
         
         .topbar-btn:hover {
-            background: #dc2626;
+            background: #e5e5e5;
         }
         
         /* 内容区域 */
         .content-area {
             flex: 1;
-            padding: 24px;
+            padding: 24px 30px;
             overflow-y: auto;
-        }
-        
-        .content-area::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        .content-area::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        
-        .content-area::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
         }
         
         /* 标签页 */
@@ -256,7 +209,7 @@
             display: flex;
             gap: 8px;
             margin-bottom: 24px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e5e7eb;
             overflow-x: auto;
         }
         
@@ -274,49 +227,36 @@
         }
         
         .tab:hover {
-            color: #00A3FF;
+            color: #667eea;
         }
         
         .tab.active {
-            color: #00A3FF;
-            border-bottom-color: #00A3FF;
+            color: #667eea;
+            border-bottom-color: #667eea;
         }
         
         .tab-content {
             display: none;
-            animation: fadeIn 0.3s ease-in-out;
         }
         
         .tab-content.active {
             display: block;
         }
         
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        /* 卡片 - easypay 风格 */
+        /* 卡片 */
         .card {
             background: white;
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         }
         
         .card-title {
-            font-size: 18px;
-            font-weight: 900;
+            font-size: 16px;
+            font-weight: 600;
             margin-bottom: 20px;
-            color: #1e293b;
+            color: #1a1a1a;
         }
         
         /* 统计卡片网格 */
@@ -331,32 +271,30 @@
             background: white;
             border-radius: 12px;
             padding: 20px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
             display: flex;
             align-items: center;
             gap: 16px;
-            transition: all 0.2s;
+            transition: all 0.3s;
         }
         
         .stat-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
         }
         
         .stat-icon {
             width: 48px;
             height: 48px;
-            border-radius: 10px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 20px;
-            flex-shrink: 0;
         }
         
         .stat-icon.blue {
-            background: linear-gradient(135deg, #00A3FF 0%, #0284c7 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
         
@@ -375,34 +313,158 @@
             color: white;
         }
         
-        .stat-icon.purple {
-            background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
-            color: white;
-        }
-        
-        .stat-icon.orange {
-            background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
-            color: white;
-        }
-        
         .stat-content {
             flex: 1;
         }
         
         .stat-label {
             font-size: 13px;
-            color: #64748b;
+            color: #666;
             margin-bottom: 4px;
-            font-weight: 500;
         }
         
         .stat-value {
             font-size: 24px;
-            font-weight: 900;
-            color: #1e293b;
+            font-weight: 700;
+            color: #1a1a1a;
         }
         
-        /* 表单元素 - easypay 风格 */
+        /* 顶部导航栏 */
+        .header {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #E31E24 0%, #C41E3A 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .logo-text h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        
+        .logo-text p {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-name {
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .user-badge {
+            background: #FFF3CD;
+            color: #856404;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .logout-btn {
+            padding: 8px 20px;
+            background: #f5f5f5;
+            color: #333;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: #e0e0e0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+            overflow-x: auto;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 15px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        
+        .tab:hover {
+            color: #E31E24;
+        }
+        
+        .tab.active {
+            color: #E31E24;
+            border-bottom-color: #E31E24;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
         .form-group {
             margin-bottom: 20px;
         }
@@ -410,99 +472,89 @@
         label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 700;
-            color: #1e293b;
+            font-weight: 500;
+            color: #333;
             font-size: 14px;
         }
         
         input, select, textarea {
             width: 100%;
-            padding: 10px 14px;
-            border: 1px solid #e2e8f0;
+            padding: 12px 16px;
+            border: 1px solid #e0e0e0;
             border-radius: 8px;
             font-size: 14px;
-            transition: all 0.2s;
+            transition: all 0.3s;
             background: white;
-            font-family: inherit;
         }
         
         input:focus, select:focus, textarea:focus {
             outline: none;
-            border-color: #00A3FF;
-            box-shadow: 0 0 0 3px rgba(0, 163, 255, 0.1);
+            border-color: #E31E24;
+            box-shadow: 0 0 0 3px rgba(227, 30, 36, 0.1);
         }
         
         textarea {
-            min-height: 140px;
+            min-height: 150px;
             resize: vertical;
-            line-height: 1.6;
+            font-family: inherit;
         }
         
-        /* 按钮 - easypay 风格 */
         .btn {
-            padding: 10px 24px;
+            padding: 12px 30px;
             border: none;
             border-radius: 8px;
-            font-size: 14px;
-            font-weight: 700;
+            font-size: 15px;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s;
             display: inline-block;
         }
         
         .btn-primary {
-            background: #00A3FF;
+            background: linear-gradient(135deg, #E31E24 0%, #C41E3A 100%);
             color: white;
+            box-shadow: 0 4px 12px rgba(227, 30, 36, 0.3);
         }
         
         .btn-primary:hover {
-            background: #0284c7;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(227, 30, 36, 0.4);
         }
         
         .btn-secondary {
-            background: #f1f5f9;
-            color: #1e293b;
-            border: 1px solid #e2e8f0;
+            background: #f5f5f5;
+            color: #333;
         }
         
         .btn-secondary:hover {
-            background: #e2e8f0;
+            background: #e0e0e0;
         }
         
-        .btn-small {
-            padding: 6px 12px;
-            font-size: 13px;
-        }
-        
-        /* 提示框 - easypay 风格 */
         .alert {
-            padding: 12px 16px;
+            padding: 15px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
             font-size: 14px;
-            font-weight: 500;
-            border-left: 3px solid;
         }
         
         .alert-success {
-            background: #d1fae5;
-            color: #065f46;
-            border-color: #10b981;
+            background: #D4EDDA;
+            color: #155724;
+            border: 1px solid #C3E6CB;
         }
         
         .alert-error {
-            background: #fee2e2;
-            color: #991b1b;
-            border-color: #ef4444;
+            background: #F8D7DA;
+            color: #721C24;
+            border: 1px solid #F5C6CB;
         }
         
         .alert-info {
-            background: #dbeafe;
-            color: #1e40af;
-            border-color: #3b82f6;
+            background: #D1ECF1;
+            color: #0C5460;
+            border: 1px solid #BEE5EB;
         }
         
-        /* 加载动画 */
         .loading {
             display: none;
             text-align: center;
@@ -514,13 +566,13 @@
         }
         
         .spinner {
-            border: 3px solid #e2e8f0;
-            border-top: 3px solid #00A3FF;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #E31E24;
             border-radius: 50%;
             width: 40px;
             height: 40px;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 16px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
         }
         
         @keyframes spin {
@@ -528,14 +580,12 @@
             100% { transform: rotate(360deg); }
         }
         
-        /* 结果框 */
         .result-box {
-            background: #f8fafc;
-            border-radius: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
             padding: 20px;
             margin-top: 20px;
             display: none;
-            border: 1px solid #e2e8f0;
         }
         
         .result-box.show {
@@ -543,362 +593,258 @@
         }
         
         .result-box h3 {
-            margin-bottom: 16px;
-            color: #1e293b;
+            margin-bottom: 15px;
+            color: #333;
             font-size: 16px;
-            font-weight: 900;
         }
         
         .result-text {
             background: white;
-            padding: 16px;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
             white-space: pre-wrap;
             word-wrap: break-word;
             line-height: 1.6;
-            color: #1e293b;
-            font-size: 14px;
-        }
-        
-        .copy-btn {
-            margin-top: 12px;
+            color: #333;
         }
         
         .stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 16px;
-            margin-top: 16px;
+            gap: 15px;
+            margin-top: 15px;
         }
         
         .stat-item {
             background: white;
-            padding: 16px;
+            padding: 15px;
             border-radius: 8px;
             text-align: center;
-            border: 1px solid #e2e8f0;
-            transition: all 0.2s;
+            border: 1px solid #e0e0e0;
         }
         
-        .stat-item:hover {
-            border-color: #00A3FF;
-            transform: translateY(-2px);
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
         }
         
-        /* 徽章 */
-        .badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 11px;
+        .stat-value {
+            font-size: 24px;
             font-weight: 700;
-            margin-left: 6px;
+            color: #E31E24;
         }
         
-        .badge-anti-ai {
-            background: #d1fae5;
-            color: #065f46;
-        }
-        
-        .badge-builtin {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-        
-        /* 模式卡片 */
         .mode-card {
-            background: white;
-            border-radius: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
             padding: 20px;
-            margin-bottom: 16px;
-            border: 1px solid #e2e8f0;
-            transition: all 0.2s;
+            margin-bottom: 15px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s;
         }
         
         .mode-card:hover {
-            border-color: #00A3FF;
-            box-shadow: 0 2px 8px rgba(0, 163, 255, 0.1);
+            border-color: #E31E24;
+            box-shadow: 0 2px 8px rgba(227, 30, 36, 0.15);
         }
         
         .mode-card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
         
         .mode-card-title {
             font-size: 16px;
-            font-weight: 900;
-            color: #1e293b;
+            font-weight: 600;
+            color: #333;
         }
         
         .mode-card-id {
-            font-size: 11px;
-            color: #64748b;
-            background: #f1f5f9;
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-family: 'Courier New', monospace;
-            font-weight: 700;
+            font-size: 12px;
+            color: #666;
+            background: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
         }
         
         .mode-card-desc {
-            color: #64748b;
-            margin-bottom: 12px;
+            color: #666;
+            margin-bottom: 10px;
             font-size: 14px;
-            line-height: 1.5;
         }
         
         .mode-card-prompt {
-            background: #f8fafc;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            color: #475569;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #555;
             max-height: 100px;
             overflow-y: auto;
             white-space: pre-wrap;
             font-family: 'Courier New', monospace;
-            margin-bottom: 12px;
-            border: 1px solid #e2e8f0;
-            line-height: 1.5;
-        }
-        
-        .mode-card-prompt::-webkit-scrollbar {
-            width: 4px;
-        }
-        
-        .mode-card-prompt::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 2px;
+            margin-bottom: 10px;
+            border: 1px solid #e0e0e0;
         }
         
         .mode-card-actions {
             display: flex;
-            gap: 8px;
+            gap: 10px;
         }
         
-        /* API 文档 */
-        .api-docs {
-            background: #f8fafc;
-            padding: 20px;
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
             border-radius: 12px;
-            margin-top: 16px;
-            border: 1px solid #e2e8f0;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 5px;
         }
         
-        .api-docs h4 {
-            margin-top: 20px;
-            margin-bottom: 12px;
-            color: #1e293b;
-            font-weight: 900;
-            font-size: 16px;
+        .badge-anti-ai {
+            background: #D4EDDA;
+            color: #155724;
+        }
+        
+        .badge-builtin {
+            background: #D1ECF1;
+            color: #0C5460;
+        }
+        
+        .copy-btn {
+            margin-top: 10px;
+        }
+        
+        .api-docs {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
         }
         
         .api-docs code {
-            background: #e0f2fe;
+            background: #e9ecef;
             padding: 2px 6px;
             border-radius: 4px;
             font-family: 'Courier New', monospace;
             font-size: 13px;
-            color: #0284c7;
-            font-weight: 600;
         }
         
         .api-docs pre {
             background: #1e293b;
             color: #f8f8f2;
-            padding: 16px;
-            border-radius: 8px;
+            padding: 15px;
+            border-radius: 6px;
             overflow-x: auto;
-            margin: 12px 0;
+            margin: 10px 0;
             font-size: 13px;
-            line-height: 1.6;
         }
         
-        .api-docs pre::-webkit-scrollbar {
-            height: 6px;
-        }
-        
-        .api-docs pre::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 3px;
-        }
-        
-        /* 表格 - easypay 风格 */
         table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            margin-top: 16px;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
+            border-collapse: collapse;
+            margin-top: 15px;
         }
         
         th {
-            background: #f8fafc;
-            color: #1e293b;
+            background: #f8f9fa;
             padding: 12px;
             text-align: left;
-            font-weight: 900;
-            font-size: 12px;
-            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #e0e0e0;
+            font-size: 13px;
         }
         
         td {
             padding: 12px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e0e0e0;
             font-size: 14px;
-            color: #1e293b;
-        }
-        
-        tr:last-child td {
-            border-bottom: none;
+            color: #333;
         }
         
         tr:hover {
-            background: #f8fafc;
+            background: #f8f9fa;
+        }
+        
+        /* 底部 */
+        .footer {
+            background: #1a1f36;
+            color: #fff;
+            padding: 40px 20px;
+            margin-top: 60px;
+        }
+        
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .footer p {
+            color: #9ca3af;
+            font-size: 14px;
         }
         
         /* 响应式 */
         @media (max-width: 768px) {
-            .sidebar {
-                width: 200px;
+            .header-content {
+                flex-direction: column;
+                height: auto;
+                padding: 15px 20px;
+                gap: 15px;
             }
             
-            .main-content {
-                margin-left: 200px;
+            .tabs {
+                flex-wrap: nowrap;
+                overflow-x: auto;
             }
             
-            .topbar {
-                padding: 0 16px;
-            }
-            
-            .content-area {
-                padding: 16px;
-            }
-            
-            .stats-grid {
+            .stats {
                 grid-template-columns: 1fr;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .sidebar {
-                width: 60px;
-            }
-            
-            .main-content {
-                margin-left: 60px;
-            }
-            
-            .sidebar-header {
-                padding: 16px 8px;
-            }
-            
-            .logo-text,
-            .menu-item span:not(.menu-item-icon),
-            .user-info-text {
-                display: none;
-            }
-            
-            .logo-icon {
-                margin: 0 auto;
-            }
-            
-            .menu-item {
-                justify-content: center;
-                padding: 12px;
-                margin: 3px 6px;
-            }
-            
-            .user-card {
-                justify-content: center;
-                padding: 10px;
-            }
-            
-            .topbar {
-                padding: 0 12px;
-            }
-            
-            .topbar-left h2 {
-                font-size: 16px;
-            }
-            
-            .content-area {
-                padding: 12px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- 布局容器 -->
-    <div class="layout">
-        <!-- 左侧边栏 -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <div class="logo-icon">S</div>
-                    <div class="logo-text">
-                        <h1>SEO API</h1>
-                        <p>智能文本改写</p>
-                    </div>
+    <!-- 顶部导航栏 -->
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">S</div>
+                <div class="logo-text">
+                    <h1>SEO API</h1>
+                    <p>Claude AI 智能文本改写服务</p>
                 </div>
             </div>
-            
-            <div class="sidebar-menu">
-                <div class="menu-item active" onclick="switchTab('rewrite')">
-                    <span class="menu-item-icon">✏️</span>
-                    <span>文本改写</span>
-                </div>
-                <div class="menu-item" onclick="switchTab('logs')">
-                    <span class="menu-item-icon">📝</span>
-                    <span>调用日志</span>
-                </div>
-                <div class="menu-item" onclick="switchTab('modes')">
-                    <span class="menu-item-icon">🎯</span>
-                    <span>模式管理</span>
-                </div>
-                <div class="menu-item" onclick="switchTab('config')">
-                    <span class="menu-item-icon">⚙️</span>
-                    <span>配置</span>
-                </div>
-                <div class="menu-item" onclick="switchTab('api')">
-                    <span class="menu-item-icon">📖</span>
-                    <span>API 文档</span>
-                </div>
-            </div>
-            
-            <div class="sidebar-footer">
-                <div class="user-card">
-                    <div class="user-avatar" id="sidebar-avatar">U</div>
-                    <div class="user-info-text">
-                        <div class="user-name" id="sidebar-username">加载中...</div>
-                        <div class="user-role" id="sidebar-role">用户</div>
-                    </div>
-                </div>
+            <div class="user-info" id="user-info-header">
+                <span class="user-name" id="header-username">加载中...</span>
+                <button class="logout-btn" onclick="logout()">退出登录</button>
             </div>
         </div>
+    </div>
+    
+    <div class="container">
         
-        <!-- 主内容区 -->
-        <div class="main-content">
-            <!-- 顶部栏 -->
-            <div class="topbar">
-                <div class="topbar-left">
-                    <h2 id="page-title">文本改写</h2>
-                    <p>欢迎回来，管理员</p>
-                </div>
-                <div class="topbar-right">
-                    <button class="topbar-btn" onclick="logout()">退出登录</button>
-                </div>
+        <div class="card">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('rewrite')">文本改写</button>
+                <button class="tab" onclick="switchTab('stats')">统计数据</button>
+                <button class="tab" onclick="switchTab('logs')">调用日志</button>
+                <button class="tab" onclick="switchTab('modes')">模式管理</button>
+                <button class="tab" onclick="switchTab('config')">配置</button>
+                <button class="tab" onclick="switchTab('api')">API 文档</button>
             </div>
-            
-            <!-- 内容区域 -->
-            <div class="content-area">
             
             <!-- 文本改写标签页 -->
             <div id="rewrite-tab" class="tab-content active">
@@ -958,97 +904,74 @@
                 </div>
             </div>
             
+            <!-- 统计数据标签页 -->
+            <div id="stats-tab" class="tab-content">
+                <div id="stats-alert"></div>
+                
+                <h3 style="margin-bottom: 20px;">API 调用统计</h3>
+                
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-label">总调用次数</div>
+                        <div class="stat-value" id="total-calls">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">成功次数</div>
+                        <div class="stat-value" id="success-calls" style="color: #10b981;">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">失败次数</div>
+                        <div class="stat-value" id="error-calls" style="color: #ef4444;">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Token 使用量</div>
+                        <div class="stat-value" id="total-tokens">-</div>
+                    </div>
+                </div>
+                
+                <h4 style="margin-top: 30px; margin-bottom: 15px;">模型使用统计</h4>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">模型</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">调用次数</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">成功次数</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">失败次数</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">Token 使用</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">成功率</th>
+                            </tr>
+                        </thead>
+                        <tbody id="model-stats-table">
+                            <tr><td colspan="6" style="text-align: center; padding: 20px; color: #666;">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h4 style="margin-top: 30px; margin-bottom: 15px;">API 服务统计</h4>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">API 服务</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">调用次数</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">成功次数</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">失败次数</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">成功率</th>
+                            </tr>
+                        </thead>
+                        <tbody id="baseurl-stats-table">
+                            <tr><td colspan="5" style="text-align: center; padding: 20px; color: #666;">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
             <!-- 调用日志标签页 -->
             <div id="logs-tab" class="tab-content">
                 <div id="logs-alert"></div>
                 
-                <h3 style="margin-bottom: 20px;">调用日志</h3>
-                
-                <!-- 日志统计卡片 -->
-                <div class="stats-grid" style="margin-bottom: 24px;">
-                    <div class="stat-card">
-                        <div class="stat-icon blue">📊</div>
-                        <div class="stat-content">
-                            <div class="stat-label">总调用次数</div>
-                            <div class="stat-value" id="log-total-calls">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon green">✅</div>
-                        <div class="stat-content">
-                            <div class="stat-label">成功次数</div>
-                            <div class="stat-value" id="log-success-calls">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon red">❌</div>
-                        <div class="stat-content">
-                            <div class="stat-label">失败次数</div>
-                            <div class="stat-value" id="log-error-calls">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon yellow">⏱️</div>
-                        <div class="stat-content">
-                            <div class="stat-label">平均耗时</div>
-                            <div class="stat-value" id="log-avg-duration">0s</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon purple">📥</div>
-                        <div class="stat-content">
-                            <div class="stat-label">总输入 Tokens</div>
-                            <div class="stat-value" id="log-total-input-tokens">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon orange">📤</div>
-                        <div class="stat-content">
-                            <div class="stat-label">总输出 Tokens</div>
-                            <div class="stat-value" id="log-total-output-tokens">0</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 筛选器 -->
-                <div class="card" style="margin-bottom: 20px;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="filter-status">状态</label>
-                            <select id="filter-status" onchange="filterLogs()">
-                                <option value="">全部</option>
-                                <option value="success">成功</option>
-                                <option value="error">失败</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="filter-model">模型</label>
-                            <select id="filter-model" onchange="filterLogs()">
-                                <option value="">全部</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="filter-mode">模式</label>
-                            <select id="filter-mode" onchange="filterLogs()">
-                                <option value="">全部</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="filter-date">日期</label>
-                            <select id="filter-date" onchange="filterLogs()">
-                                <option value="">全部</option>
-                                <option value="today">今天</option>
-                                <option value="yesterday">昨天</option>
-                                <option value="week">最近7天</option>
-                                <option value="month">最近30天</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style="margin-top: 16px; display: flex; gap: 8px;">
-                        <button class="btn btn-secondary btn-small" onclick="resetFilters()">重置筛选</button>
-                        <button class="btn btn-secondary btn-small" onclick="exportLogs()">导出日志</button>
-                    </div>
-                </div>
+                <h3 style="margin-bottom: 20px;">最近调用日志</h3>
                 
                 <div style="overflow-x: auto;">
                     <table style="width: 100%; border-collapse: collapse;">
@@ -1060,7 +983,7 @@
                                 <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">模式</th>
                                 <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">状态</th>
                                 <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">耗时</th>
-                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">输入/输出</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0;">Tokens</th>
                             </tr>
                         </thead>
                         <tbody id="logs-table">
@@ -1140,50 +1063,28 @@
                     <br><small style="margin-top: 5px; display: block;">在小旋风的 Authorization 字段填入此 API Key</small>
                 </div>
                 
-                <h4 style="margin-top: 30px; margin-bottom: 15px;">AI API 配置</h4>
+                <h4 style="margin-top: 30px; margin-bottom: 15px;">Claude API 配置</h4>
                 
                 <div class="form-group">
-                    <label for="claude-base-url">API 地址</label>
+                    <label for="claude-base-url">Claude API 地址</label>
                     <input type="text" id="claude-base-url" placeholder="https://api.api123.icu">
-                    <small style="color: #64748b; margin-top: 5px; display: block;">
-                        支持 OpenAI、Claude、Gemini、通义千问等多种 AI 服务
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        默认使用 api123.icu 中转，也可以使用官方地址 https://api.anthropic.com 或其他中转
                     </small>
                 </div>
                 
                 <div class="form-group">
-                    <label for="api-type">API 类型</label>
-                    <select id="api-type">
-                        <option value="auto">自动识别（推荐）</option>
-                        <option value="openai">OpenAI 格式</option>
-                        <option value="anthropic">Anthropic Claude</option>
-                        <option value="gemini">Google Gemini</option>
-                        <option value="cohere">Cohere</option>
-                        <option value="qwen">阿里云通义千问</option>
-                        <option value="wenxin">百度文心一言</option>
-                        <option value="azure-openai">Azure OpenAI</option>
-                    </select>
-                    <small style="color: #64748b; margin-top: 5px; display: block;">
-                        如果自动识别不准确，可以手动指定 API 类型
+                    <label for="claude-api-key">Claude API Key</label>
+                    <input type="password" id="claude-api-key" placeholder="sk-ant-...">
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        请在 <a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a> 获取 API Key
                     </small>
                 </div>
                 
-                <div class="form-group">
-                    <label for="claude-api-key">API Key</label>
-                    <div style="position: relative;">
-                        <input type="password" id="claude-api-key" placeholder="sk-..." style="padding-right: 45px;">
-                        <button type="button" onclick="toggleApiKeyVisibility()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; padding: 5px; color: #64748b;" title="显示/隐藏 API Key">
-                            <span id="api-key-toggle-icon">👁️</span>
-                        </button>
-                    </div>
-                    <small style="color: #64748b; margin-top: 5px; display: block;">
-                        请在对应的 AI 服务平台获取 API Key
-                    </small>
-                </div>
-                
-                <button class="btn btn-primary" onclick="saveClaudeConfig()">保存 API 配置</button>
+                <button class="btn btn-primary" onclick="saveClaudeConfig()">保存 Claude 配置</button>
                 
                 <h4 style="margin-top: 30px; margin-bottom: 15px;">默认调用配置</h4>
-                <p style="color: #64748b; margin-bottom: 15px;">
+                <p style="color: #666; margin-bottom: 15px;">
                     当小旋风调用 API 时，如果不指定模型和模式参数，将使用以下默认配置
                 </p>
                 
@@ -1198,8 +1099,8 @@
                         <option value="claude-opus-4-5-20251101-thinking">Claude Opus 4.5 Thinking - 最强分析</option>
                         <option value="claude-opus-4-6">Claude Opus 4.6 - 顶级</option>
                     </select>
-                    <small style="color: #64748b; margin-top: 5px; display: block;">
-                        模型名称需要与所选 AI 服务匹配
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        推荐使用 Claude Sonnet 4.5，性能和成本平衡最佳
                     </small>
                 </div>
                 
@@ -1208,7 +1109,7 @@
                     <select id="default-mode">
                         <!-- 模式列表将动态加载 -->
                     </select>
-                    <small style="color: #64748b; margin-top: 5px; display: block;">
+                    <small style="color: #666; margin-top: 5px; display: block;">
                         ⭐ 标记的模式可以降低 AI 检测风险，🎯 标记的是 SEO 专用模式
                     </small>
                 </div>
@@ -1239,224 +1140,88 @@
                 <h3>API 接口文档</h3>
                 
                 <div class="api-docs">
-                    <h4>1. 接口信息</h4>
-                    <p><strong>API 地址：</strong> <code>http://your-server:8000/api/rewrite</code></p>
-                    <p><strong>请求方式：</strong> <code>POST</code></p>
-                    <p><strong>返回格式：</strong> <code>JSON</code>（兼容 5118 格式）</p>
+                    <h4>1. 文本改写接口（兼容 5118 格式）</h4>
+                    <p><strong>POST</strong> <code>/api/rewrite</code></p>
                     
-                    <h4>2. 必填参数</h4>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>参数名</th>
-                                <th>类型</th>
-                                <th>说明</th>
-                                <th>示例</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><code>txt</code> / <code>content</code></td>
-                                <td>String</td>
-                                <td>要改写的文本内容（无限制，支持超长文本）</td>
-                                <td>这是要改写的文本</td>
-                            </tr>
-                            <tr>
-                                <td><code>Authorization</code></td>
-                                <td>String</td>
-                                <td>API Key（HTTP Header 或参数）</td>
-                                <td>sk_xxx...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <p><strong>请求参数（支持两种格式）：</strong></p>
                     
-                    <h4>3. 可选参数</h4>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>参数名</th>
-                                <th>类型</th>
-                                <th>说明</th>
-                                <th>默认值</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><code>mode</code></td>
-                                <td>String</td>
-                                <td>改写模式（humanlike/seo_spider/standard等）</td>
-                                <td>用户默认模式</td>
-                            </tr>
-                            <tr>
-                                <td><code>model</code></td>
-                                <td>String</td>
-                                <td>AI 模型（claude-sonnet-4-5-20250929等）</td>
-                                <td>用户默认模型</td>
-                            </tr>
-                            <tr>
-                                <td><code>sim</code></td>
-                                <td>Integer</td>
-                                <td>是否返回相似度（1=返回，0=不返回）</td>
-                                <td>0</td>
-                            </tr>
-                            <tr>
-                                <td><code>compact</code></td>
-                                <td>Integer</td>
-                                <td>是否压缩输出（1=压缩，0=正常）</td>
-                                <td>0</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    
-                    <h4>4. 返回格式</h4>
-                    <p><strong>成功返回：</strong></p>
+                    <p>格式1 - 标准格式：</p>
                     <pre>{
-  "errcode": "0",           // 成功标志
-  "errmsg": "",             // 错误信息（成功时为空）
-  "data": "改写后的文本",    // 改写内容
-  "like": "0.5521"          // 相似度（sim=1时返回）
+  "text": "要改写的文本内容",
+  "mode": "standard",
+  "model": "claude-3-sonnet-20240229",
+  "sim": 1  // 可选，是否返回相似度
 }</pre>
                     
-                    <p><strong>失败返回：</strong></p>
+                    <p>格式2 - 5118 兼容格式：</p>
                     <pre>{
-  "errcode": "200201",      // 错误码
-  "errmsg": "传进参数为空",  // 错误描述
-  "data": ""                // 空内容
+  "txt": "要改写的文本内容",
+  "retype": 1,
+  "sim": 1
 }</pre>
                     
-                    <h4>5. 错误码说明</h4>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>错误码</th>
-                                <th>说明</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><code>0</code></td>
-                                <td>成功</td>
-                            </tr>
-                            <tr>
-                                <td><code>100203</code></td>
-                                <td>API Key 无效或未授权</td>
-                            </tr>
-                            <tr>
-                                <td><code>100202</code></td>
-                                <td>请求缺少 apikey</td>
-                            </tr>
-                            <tr>
-                                <td><code>200201</code></td>
-                                <td>传进参数为空</td>
-                            </tr>
-                            <tr>
-                                <td><code>100301</code></td>
-                                <td>改写失败（AI 服务调用失败）</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <p><strong>返回格式（5118 兼容）：</strong></p>
+                    <pre>{
+  "errcode": "0",
+  "errmsg": "",
+  "data": "改写后的文本内容",
+  "like": "0.5521",  // 相似度（如果 sim=1）
+  "_meta": {
+    "duration": 2.5,
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 150
+    }
+  }
+}</pre>
                     
-                    <h4>6. 小旋风配置示例</h4>
-                    <p><strong>基础配置（推荐）：</strong></p>
-                    <pre>API 名称: 奶盘伪原创 API
-API 地址: http://your-server:8000/api/rewrite
-post 格式: txt={word}&mode=humanlike&sim=1
-Authorization: sk_your_api_key_here
-成功标志: errcode=0
-返回错误的字段: errmsg
-伪原创后的内容字段: data</pre>
-                    
-                    <p><strong>SEO 优化配置：</strong></p>
-                    <pre>API 名称: 奶盘 SEO 改写
-API 地址: http://your-server:8000/api/rewrite
-post 格式: txt={word}&mode=seo_spider&sim=1
-Authorization: sk_your_api_key_here
-成功标志: errcode=0
-返回错误的字段: errmsg
-伪原创后的内容字段: data</pre>
-                    
-                    <p><strong>长文本配置：</strong></p>
-                    <pre>API 名称: 奶盘长文本改写
-API 地址: http://your-server:8000/api/rewrite
-post 格式: txt={word}&mode=humanlike&compact=1
-Authorization: sk_your_api_key_here
-成功标志: errcode=0
-返回错误的字段: errmsg
-伪原创后的内容字段: data</pre>
-                    
-                    <h4>7. cURL 测试示例</h4>
-                    <p><strong>基础测试：</strong></p>
-                    <pre>curl -X POST http://your-server:8000/api/rewrite \
+                    <p><strong>cURL 示例：</strong></p>
+                    <pre>curl -X POST http://localhost:8000/api/rewrite \
   -H "Content-Type: application/json" \
-  -H "Authorization: sk_your_api_key_here" \
-  -d '{"txt":"这是要改写的文本","sim":1}'</pre>
+  -d '{"txt":"要改写的文本","sim":1}'</pre>
                     
-                    <p><strong>表单格式测试（小旋风格式）：</strong></p>
-                    <pre>curl -X POST http://your-server:8000/api/rewrite \
-  -H "Authorization: sk_your_api_key_here" \
-  -d "txt=这是要改写的文本&mode=humanlike&sim=1"</pre>
+                    <h4>2. 小旋风集成配置</h4>
+                    <p>在小旋风伪原创 API 配置中：</p>
+                    <pre>API 地址: http://your-server:8000/api/rewrite
+请求方式: POST
+请求参数: txt=[content]&sim=1
+返回格式: JSON
+提取路径: data</pre>
                     
-                    <p><strong>压缩输出测试（长文本）：</strong></p>
-                    <pre>curl -X POST http://your-server:8000/api/rewrite \
-  -H "Authorization: sk_your_api_key_here" \
-  -d "txt=这是一篇很长的文本...&mode=humanlike&compact=1"</pre>
+                    <p><strong>小旋风配置示例：</strong></p>
+                    <ul>
+                        <li>API 接口: <code>http://your-server:8000/api/rewrite</code></li>
+                        <li>请求方式: POST</li>
+                        <li>参数名: <code>txt</code></li>
+                        <li>参数值: <code>[content]</code> (小旋风变量)</li>
+                        <li>返回提取: JSON 路径 <code>data</code></li>
+                    </ul>
                     
-                    <h4>8. 参数对照表</h4>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>小旋风</th>
-                                <th>本系统</th>
-                                <th>说明</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>{word}</td>
-                                <td>txt / content</td>
-                                <td>文本内容</td>
-                            </tr>
-                            <tr>
-                                <td>Authorization</td>
-                                <td>Authorization / apikey</td>
-                                <td>API Key</td>
-                            </tr>
-                            <tr>
-                                <td>result=1</td>
-                                <td>errcode=0</td>
-                                <td>成功标志</td>
-                            </tr>
-                            <tr>
-                                <td>message</td>
-                                <td>errmsg</td>
-                                <td>错误信息</td>
-                            </tr>
-                            <tr>
-                                <td>content</td>
-                                <td>data</td>
-                                <td>改写内容</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <h4>3. 错误码说明</h4>
+                    <ul>
+                        <li><code>0</code> - 成功</li>
+                        <li><code>200201</code> - 传进参数为空</li>
+                        <li><code>200500</code> - 内容长度超过5000字符</li>
+                        <li><code>100203</code> - API Key 无效</li>
+                        <li><code>100102</code> - 请求频率超限</li>
+                    </ul>
                     
-                    <h4>9. 其他接口</h4>
+                    <h4>3. 其他接口</h4>
                     <ul>
                         <li><code>GET /health</code> - 健康检查</li>
                         <li><code>GET /api/models</code> - 获取支持的模型列表</li>
-                        <li><code>GET /api/modes</code> - 获取改写模式列表</li>
-                        <li><code>GET /api/stats</code> - 获取统计数据（需登录）</li>
-                        <li><code>GET /api/logs</code> - 获取调用日志（需登录）</li>
-                    </ul>
-                    
-                    <h4>10. 相关文档</h4>
-                    <ul>
-                        <li><a href="https://github.com/your-repo/小旋风API接口文档.md" target="_blank">小旋风API接口文档.md</a> - 完整参数说明</li>
-                        <li><a href="https://github.com/your-repo/小旋风参数对照表.txt" target="_blank">小旋风参数对照表.txt</a> - 快速参考</li>
-                        <li><a href="https://github.com/your-repo/小旋风配置教程.md" target="_blank">小旋风配置教程.md</a> - 详细配置步骤</li>
+                        <li><code>GET /api/docs</code> - API 文档（JSON）</li>
                     </ul>
                 </div>
             </div>
-            </div>
+        </div>
+    </div>
+    
+    <!-- 底部 -->
+    <div class="footer">
+        <div class="footer-content">
+            <p>SEO API v1.0.0 - Powered by Claude AI</p>
+            <p style="margin-top: 10px; font-size: 12px;">专业的 AI 文本改写服务，助您节省时间，提升效率</p>
         </div>
     </div>
     
@@ -1502,21 +1267,18 @@ Authorization: sk_your_api_key_here
         
         // 更新用户信息显示
         function updateUserInfo() {
-            // 更新侧边栏的用户信息
-            const sidebarUsername = document.getElementById('sidebar-username');
-            const sidebarRole = document.getElementById('sidebar-role');
-            const sidebarAvatar = document.getElementById('sidebar-avatar');
-            
-            if (sidebarUsername) {
-                sidebarUsername.textContent = currentUser.username;
-            }
-            
-            if (sidebarRole) {
-                sidebarRole.textContent = currentUser.role === 'admin' ? '管理员' : '用户';
-            }
-            
-            if (sidebarAvatar) {
-                sidebarAvatar.textContent = currentUser.username.charAt(0).toUpperCase();
+            // 更新顶部导航栏的用户信息
+            const headerUsername = document.getElementById('header-username');
+            if (headerUsername) {
+                headerUsername.textContent = `👤 ${currentUser.username}`;
+                
+                // 如果是管理员，添加徽章
+                if (currentUser.role === 'admin') {
+                    const badge = document.createElement('span');
+                    badge.className = 'user-badge';
+                    badge.textContent = '管理员';
+                    headerUsername.parentElement.insertBefore(badge, headerUsername.nextSibling);
+                }
             }
         }
         
@@ -1551,40 +1313,22 @@ Authorization: sk_your_api_key_here
         }
         
         function switchTab(tabName) {
-            // 更新内容区域
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
-            
-            // 更新侧边栏菜单
-            document.querySelectorAll('.menu-item').forEach(item => {
-                item.classList.remove('active');
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
             });
             
-            // 激活当前标签页
             document.getElementById(tabName + '-tab').classList.add('active');
             event.target.classList.add('active');
             
-            // 更新页面标题
-            const titles = {
-                'rewrite': '文本改写',
-                'logs': '调用日志',
-                'modes': '模式管理',
-                'config': '配置',
-                'api': 'API 文档'
-            };
-            const pageTitle = document.getElementById('page-title');
-            if (pageTitle) {
-                pageTitle.textContent = titles[tabName] || '文本改写';
-            }
-            
-            // 加载对应数据
             if (tabName === 'config') {
                 loadConfig();
+            } else if (tabName === 'stats') {
+                loadStats();
             } else if (tabName === 'logs') {
                 loadLogs();
-            } else if (tabName === 'modes') {
-                loadModes();
             }
         }
         
@@ -1629,12 +1373,10 @@ Authorization: sk_your_api_key_here
                 document.getElementById('result-text').textContent = data.data;
                 
                 const meta = data._meta || {};
-                const usage = meta.usage || {};
-                
                 document.getElementById('stats').innerHTML = `
                     <div class="stat-item">
                         <div class="stat-label">耗时</div>
-                        <div class="stat-value">${meta.duration ? meta.duration.toFixed(2) + 's' : '-'}</div>
+                        <div class="stat-value">${meta.duration ? meta.duration.toFixed(2) : '-'}s</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">相似度</div>
@@ -1642,11 +1384,11 @@ Authorization: sk_your_api_key_here
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">输入 Tokens</div>
-                        <div class="stat-value">${usage.input_tokens || '-'}</div>
+                        <div class="stat-value">${meta.usage ? meta.usage.input_tokens : '-'}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">输出 Tokens</div>
-                        <div class="stat-value">${usage.output_tokens || '-'}</div>
+                        <div class="stat-value">${meta.usage ? meta.usage.output_tokens : '-'}</div>
                     </div>
                 `;
                 
@@ -1928,40 +1670,6 @@ Authorization: sk_your_api_key_here
             }
         }
         
-        // 加密显示 API Key
-        function maskApiKey(key) {
-            if (!key || key.length < 8) return '••••••••';
-            // 显示前4个字符和后4个字符，中间用 • 代替
-            const start = key.substring(0, 4);
-            const end = key.substring(key.length - 4);
-            const middle = '•'.repeat(Math.min(key.length - 8, 20));
-            return start + middle + end;
-        }
-        
-        // 切换 API Key 可见性
-        function toggleApiKeyVisibility() {
-            const input = document.getElementById('claude-api-key');
-            const icon = document.getElementById('api-key-toggle-icon');
-            
-            if (input.type === 'password') {
-                // 显示真实的 API Key
-                if (input.dataset.realKey) {
-                    input.value = input.dataset.realKey;
-                }
-                input.type = 'text';
-                icon.textContent = '🙈';
-                icon.parentElement.title = '隐藏 API Key';
-            } else {
-                // 隐藏 API Key
-                if (input.dataset.realKey) {
-                    input.value = maskApiKey(input.dataset.realKey);
-                }
-                input.type = 'password';
-                icon.textContent = '👁️';
-                icon.parentElement.title = '显示 API Key';
-            }
-        }
-        
         // 重新生成 API Key
         async function regenerateApiKey() {
             if (!confirm('重新生成后，旧的 API Key 将立即失效。确定要继续吗？')) {
@@ -2023,16 +1731,9 @@ Authorization: sk_your_api_key_here
         // 保存 Claude 配置（包括 Base URL 和 API Key）
         async function saveClaudeConfig() {
             const claudeBaseURL = document.getElementById('claude-base-url').value.trim();
-            const claudeApiKeyInput = document.getElementById('claude-api-key');
-            let claudeApiKey = claudeApiKeyInput.value.trim();
-            const apiType = document.getElementById('api-type').value;
+            const claudeApiKey = document.getElementById('claude-api-key').value.trim();
             
-            // 如果输入框中是加密显示的 key，不保存（用户没有修改）
-            if (claudeApiKey && claudeApiKey.includes('•')) {
-                claudeApiKey = ''; // 不更新 API Key
-            }
-            
-            if (!claudeBaseURL && !claudeApiKey && !apiType) {
+            if (!claudeBaseURL && !claudeApiKey) {
                 showAlert('请至少填写一项配置', 'error', 'config-alert');
                 return;
             }
@@ -2055,24 +1756,7 @@ Authorization: sk_your_api_key_here
                     }
                 }
                 
-                // 保存 API 类型
-                if (apiType) {
-                    const typeResponse = await authFetch('/api/users/api-type', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ apiType })
-                    });
-                    
-                    const typeData = await typeResponse.json();
-                    if (!typeData.success) {
-                        showAlert(typeData.error || 'API 类型保存失败', 'error', 'config-alert');
-                        return;
-                    }
-                }
-                
-                // 保存 API Key（只有当用户输入了新的 key 时才保存）
+                // 保存 API Key
                 if (claudeApiKey) {
                     const keyResponse = await authFetch('/api/users/claude-key', {
                         method: 'POST',
@@ -2089,13 +1773,8 @@ Authorization: sk_your_api_key_here
                     }
                 }
                 
-                showAlert('API 配置保存成功！', 'success', 'config-alert');
-                // 清空输入框并重置状态
-                const claudeApiKeyInput = document.getElementById('claude-api-key');
-                claudeApiKeyInput.value = '';
-                claudeApiKeyInput.type = 'password';
-                delete claudeApiKeyInput.dataset.realKey;
-                document.getElementById('api-key-toggle-icon').textContent = '👁️';
+                showAlert('Claude 配置保存成功！', 'success', 'config-alert');
+                document.getElementById('claude-api-key').value = '';
                 loadConfig();
                 
             } catch (error) {
@@ -2192,31 +1871,6 @@ Authorization: sk_your_api_key_here
                         baseURLElement.value = data.user.claudeBaseURL || 'https://api.api123.icu';
                     }
                     
-                    // 更新 API 类型选择
-                    const apiTypeElement = document.getElementById('api-type');
-                    if (apiTypeElement && data.user.apiType) {
-                        apiTypeElement.value = data.user.apiType;
-                    }
-                    
-                    // 更新 Claude API Key 输入框（加密显示）
-                    const claudeApiKeyElement = document.getElementById('claude-api-key');
-                    if (claudeApiKeyElement) {
-                        if (data.user.claudeApiKey) {
-                            // 保存真实的 API Key 到 data 属性
-                            claudeApiKeyElement.dataset.realKey = data.user.claudeApiKey;
-                            // 显示加密版本
-                            claudeApiKeyElement.value = maskApiKey(data.user.claudeApiKey);
-                            claudeApiKeyElement.type = 'password';
-                            claudeApiKeyElement.placeholder = 'sk-...';
-                        } else {
-                            // API Key 未配置
-                            claudeApiKeyElement.value = '';
-                            claudeApiKeyElement.type = 'password';
-                            claudeApiKeyElement.placeholder = 'sk-...';
-                            delete claudeApiKeyElement.dataset.realKey;
-                        }
-                    }
-                    
                     // 更新默认模型选择
                     const defaultModelElement = document.getElementById('default-model');
                     if (defaultModelElement && data.user.defaultModel) {
@@ -2232,27 +1886,12 @@ Authorization: sk_your_api_key_here
                     // 更新配置状态
                     const statusElement = document.getElementById('config-status');
                     if (statusElement) {
-                        const apiTypeNames = {
-                            'auto': '自动识别',
-                            'openai': 'OpenAI 格式',
-                            'anthropic': 'Anthropic Claude',
-                            'gemini': 'Google Gemini',
-                            'cohere': 'Cohere',
-                            'qwen': '阿里云通义千问',
-                            'wenxin': '百度文心一言',
-                            'azure-openai': 'Azure OpenAI'
-                        };
-                        
-                        // 显示 AI API Key 状态（加密显示）
-                        const claudeKeyDisplay = data.user.claudeApiKey ? maskApiKey(data.user.claudeApiKey) : '未设置';
-                        
                         statusElement.innerHTML = `
                             <p><strong>用户名：</strong> ${data.user.username}</p>
                             <p><strong>角色：</strong> ${data.user.role === 'admin' ? '管理员' : '普通用户'}</p>
                             <p><strong>API Key：</strong> ${data.user.apiKey.substring(0, 15)}...</p>
-                            <p><strong>AI API Key：</strong> ${claudeKeyDisplay}</p>
-                            <p><strong>API 地址：</strong> ${data.user.claudeBaseURL || 'https://api.api123.icu'}</p>
-                            <p><strong>API 类型：</strong> ${apiTypeNames[data.user.apiType] || '自动识别'}</p>
+                            <p><strong>Claude API Key：</strong> ${data.user.claudeApiKey}</p>
+                            <p><strong>Claude API 地址：</strong> ${data.user.claudeBaseURL || 'https://api.api123.icu'}</p>
                             <p><strong>默认模型：</strong> ${data.user.defaultModel || 'claude-sonnet-4-5-20250929'}</p>
                             <p><strong>默认模式：</strong> ${data.user.defaultMode || 'seo_spider'}</p>
                         `;
@@ -2287,208 +1926,125 @@ Authorization: sk_your_api_key_here
             }
         }
         
-        // 全局变量存储所有日志
-        let allLogs = [];
-        let filteredLogs = [];
+        // 加载统计数据
+        async function loadStats() {
+            try {
+                const response = await authFetch('/api/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const stats = data.stats;
+                    
+                    // 更新总计统计
+                    if (stats.total) {
+                        document.getElementById('total-calls').textContent = stats.total.calls || 0;
+                        document.getElementById('success-calls').textContent = stats.total.success || 0;
+                        document.getElementById('error-calls').textContent = stats.total.error || 0;
+                        document.getElementById('total-tokens').textContent = (stats.total.totalTokens || 0).toLocaleString();
+                    } else if (stats.user) {
+                        document.getElementById('total-calls').textContent = stats.user.calls || 0;
+                        document.getElementById('success-calls').textContent = stats.user.success || 0;
+                        document.getElementById('error-calls').textContent = stats.user.error || 0;
+                        document.getElementById('total-tokens').textContent = (stats.user.totalTokens || 0).toLocaleString();
+                    }
+                    
+                    // 更新模型统计表格
+                    if (stats.byModel) {
+                        const tbody = document.getElementById('model-stats-table');
+                        tbody.innerHTML = '';
+                        
+                        for (const [model, modelStats] of Object.entries(stats.byModel)) {
+                            const successRate = modelStats.calls > 0 ? ((modelStats.success / modelStats.calls) * 100).toFixed(1) : 0;
+                            const row = `
+                                <tr>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${model}</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${modelStats.calls}</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${modelStats.success}</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${modelStats.error}</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${(modelStats.totalTokens || 0).toLocaleString()}</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">
+                                        <span class="badge ${successRate >= 90 ? 'badge-anti-ai' : 'badge-builtin'}">${successRate}%</span>
+                                    </td>
+                                </tr>
+                            `;
+                            tbody.innerHTML += row;
+                        }
+                        
+                        if (Object.keys(stats.byModel).length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #666;">暂无数据</td></tr>';
+                        }
+                    }
+                    
+                    // 更新 Base URL 统计表格
+                    if (stats.byBaseURL) {
+                        const tbody = document.getElementById('baseurl-stats-table');
+                        tbody.innerHTML = '';
+                        
+                        for (const [baseURL, urlStats] of Object.entries(stats.byBaseURL)) {
+                            const successRate = urlStats.calls > 0 ? ((urlStats.success / urlStats.calls) * 100).toFixed(1) : 0;
+                            const row = `
+                                <tr>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${baseURL}</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${urlStats.calls}</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${urlStats.success}</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${urlStats.error}</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">
+                                        <span class="badge ${successRate >= 90 ? 'badge-anti-ai' : 'badge-builtin'}">${successRate}%</span>
+                                    </td>
+                                </tr>
+                            `;
+                            tbody.innerHTML += row;
+                        }
+                        
+                        if (Object.keys(stats.byBaseURL).length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #666;">暂无数据</td></tr>';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('加载统计数据失败:', error);
+                showAlert('加载统计数据失败', 'error', 'stats-alert');
+            }
+        }
         
         // 加载调用日志
         async function loadLogs() {
             try {
-                const response = await authFetch('/api/logs?limit=500');
+                const response = await authFetch('/api/logs?limit=100');
                 const data = await response.json();
                 
                 if (data.success) {
-                    allLogs = data.logs;
-                    filteredLogs = [...allLogs];
+                    const tbody = document.getElementById('logs-table');
+                    tbody.innerHTML = '';
                     
-                    // 更新筛选器选项
-                    updateFilterOptions();
+                    data.logs.forEach(log => {
+                        const time = new Date(log.timestamp).toLocaleString('zh-CN');
+                        const statusBadge = log.status === 'success' 
+                            ? '<span class="badge badge-anti-ai">成功</span>' 
+                            : '<span class="badge badge-builtin">失败</span>';
+                        
+                        const row = `
+                            <tr>
+                                <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${time}</td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${log.username}</td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${log.model}</td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${log.mode}</td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${statusBadge}</td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${log.duration.toFixed(2)}s</td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${log.totalTokens}</td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += row;
+                    });
                     
-                    // 更新统计
-                    updateLogStats();
-                    
-                    // 显示日志
-                    displayLogs();
+                    if (data.logs.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #666;">暂无日志</td></tr>';
+                    }
                 }
             } catch (error) {
                 console.error('加载日志失败:', error);
                 showAlert('加载日志失败', 'error', 'logs-alert');
             }
-        }
-        
-        // 更新筛选器选项
-        function updateFilterOptions() {
-            // 获取所有唯一的模型
-            const models = [...new Set(allLogs.map(log => log.model))];
-            const modelSelect = document.getElementById('filter-model');
-            modelSelect.innerHTML = '<option value="">全部</option>';
-            models.forEach(model => {
-                modelSelect.innerHTML += `<option value="${model}">${model}</option>`;
-            });
-            
-            // 获取所有唯一的模式
-            const modes = [...new Set(allLogs.map(log => log.mode))];
-            const modeSelect = document.getElementById('filter-mode');
-            modeSelect.innerHTML = '<option value="">全部</option>';
-            modes.forEach(mode => {
-                modeSelect.innerHTML += `<option value="${mode}">${mode}</option>`;
-            });
-        }
-        
-        // 筛选日志
-        function filterLogs() {
-            const statusFilter = document.getElementById('filter-status').value;
-            const modelFilter = document.getElementById('filter-model').value;
-            const modeFilter = document.getElementById('filter-mode').value;
-            const dateFilter = document.getElementById('filter-date').value;
-            
-            filteredLogs = allLogs.filter(log => {
-                // 状态筛选
-                if (statusFilter && log.status !== statusFilter) return false;
-                
-                // 模型筛选
-                if (modelFilter && log.model !== modelFilter) return false;
-                
-                // 模式筛选
-                if (modeFilter && log.mode !== modeFilter) return false;
-                
-                // 日期筛选
-                if (dateFilter) {
-                    const logDate = new Date(log.timestamp);
-                    const now = new Date();
-                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                    const yesterday = new Date(today);
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    
-                    switch(dateFilter) {
-                        case 'today':
-                            if (logDate < today) return false;
-                            break;
-                        case 'yesterday':
-                            if (logDate < yesterday || logDate >= today) return false;
-                            break;
-                        case 'week':
-                            const weekAgo = new Date(now);
-                            weekAgo.setDate(weekAgo.getDate() - 7);
-                            if (logDate < weekAgo) return false;
-                            break;
-                        case 'month':
-                            const monthAgo = new Date(now);
-                            monthAgo.setDate(monthAgo.getDate() - 30);
-                            if (logDate < monthAgo) return false;
-                            break;
-                    }
-                }
-                
-                return true;
-            });
-            
-            // 更新统计和显示
-            updateLogStats();
-            displayLogs();
-        }
-        
-        // 重置筛选
-        function resetFilters() {
-            document.getElementById('filter-status').value = '';
-            document.getElementById('filter-model').value = '';
-            document.getElementById('filter-mode').value = '';
-            document.getElementById('filter-date').value = '';
-            filterLogs();
-        }
-        
-        // 更新日志统计
-        function updateLogStats() {
-            const totalCalls = filteredLogs.length;
-            const successCalls = filteredLogs.filter(log => log.status === 'success').length;
-            const errorCalls = filteredLogs.filter(log => log.status === 'error').length;
-            
-            // 计算平均耗时
-            const totalDuration = filteredLogs.reduce((sum, log) => sum + (log.duration || 0), 0);
-            const avgDuration = totalCalls > 0 ? (totalDuration / totalCalls).toFixed(2) : 0;
-            
-            // 计算总 Token 数
-            const totalInputTokens = filteredLogs.reduce((sum, log) => sum + (log.inputTokens || 0), 0);
-            const totalOutputTokens = filteredLogs.reduce((sum, log) => sum + (log.outputTokens || 0), 0);
-            
-            document.getElementById('log-total-calls').textContent = totalCalls;
-            document.getElementById('log-success-calls').textContent = successCalls;
-            document.getElementById('log-error-calls').textContent = errorCalls;
-            document.getElementById('log-avg-duration').textContent = avgDuration + 's';
-            document.getElementById('log-total-input-tokens').textContent = totalInputTokens.toLocaleString();
-            document.getElementById('log-total-output-tokens').textContent = totalOutputTokens.toLocaleString();
-        }
-        
-        // 显示日志
-        function displayLogs() {
-            const tbody = document.getElementById('logs-table');
-            tbody.innerHTML = '';
-            
-            if (filteredLogs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #666;">暂无日志</td></tr>';
-                return;
-            }
-            
-            filteredLogs.forEach(log => {
-                const time = new Date(log.timestamp).toLocaleString('zh-CN');
-                const statusBadge = log.status === 'success' 
-                    ? '<span class="badge badge-anti-ai">成功</span>' 
-                    : '<span class="badge badge-builtin">失败</span>';
-                
-                // 格式化 Token 显示：输入/输出
-                const inputTokens = log.inputTokens || 0;
-                const outputTokens = log.outputTokens || 0;
-                const tokensDisplay = `${inputTokens.toLocaleString()} / ${outputTokens.toLocaleString()}`;
-                
-                const row = `
-                    <tr>
-                        <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${time}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${log.username}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${log.model}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${log.mode}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${statusBadge}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${log.duration.toFixed(2)}s</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${tokensDisplay}</td>
-                    </tr>
-                `;
-                tbody.innerHTML += row;
-            });
-        }
-        
-        // 导出日志
-        function exportLogs() {
-            if (filteredLogs.length === 0) {
-                showAlert('没有可导出的日志', 'error', 'logs-alert');
-                return;
-            }
-            
-            // 生成 CSV 内容
-            const headers = ['时间', '用户', '模型', '模式', '状态', '耗时(秒)', '输入Tokens', '输出Tokens', '总Tokens'];
-            const rows = filteredLogs.map(log => [
-                new Date(log.timestamp).toLocaleString('zh-CN'),
-                log.username,
-                log.model,
-                log.mode,
-                log.status === 'success' ? '成功' : '失败',
-                log.duration.toFixed(2),
-                log.inputTokens || 0,
-                log.outputTokens || 0,
-                log.totalTokens || 0
-            ]);
-            
-            let csvContent = headers.join(',') + '\n';
-            rows.forEach(row => {
-                csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
-            });
-            
-            // 下载文件
-            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `logs_${new Date().toISOString().split('T')[0]}.csv`;
-            link.click();
-            
-            showAlert('日志已导出', 'success', 'logs-alert');
         }
         
         // 页面加载时执行

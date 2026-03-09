@@ -14,6 +14,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const rateLimit = require('express-rate-limit');
+const logger = require('./lib/logger');
 require('dotenv').config();
 
 // 加载改写模式配置
@@ -89,6 +90,7 @@ function initUsers() {
                 createdAt: new Date().toISOString(),
                 claudeApiKey: process.env.CLAUDE_API_KEY || '',
                 claudeBaseURL: process.env.CLAUDE_BASE_URL || 'https://api.api123.icu',
+                apiType: 'auto', // API 类型：auto/openai/anthropic/gemini/cohere/qwen/wenxin
                 defaultModel: 'claude-sonnet-4-5-20250929',
                 defaultMode: 'humanlike'
             }
@@ -253,22 +255,339 @@ for (const [key, value] of Object.entries(rewriteModesConfig)) {
     REWRITE_PROMPTS[key] = value.prompt;
 }
 
+/**
+ * 智能分段函数（带上下文重叠）
+ * 按段落分割文本，避免截断句子，并保留上下文
+ * @param {string} text - 要分割的文本
+ * @param {number} chunkSize - 每段的目标大小
+ * @param {number} overlapSize - 上下文重叠大小（默认 200 字符）
+ * @returns {Array<Object>} 分段后的对象数组，包含 text 和 context
+ */
+function smartSplitText(text, chunkSize, overlapSize = 200) {
+    const chunks = [];
+    
+    // 首先按段落分割（双换行）
+    const paragraphs = text.split(/\n\n+/);
+    
+    let currentChunk = '';
+    let previousContext = ''; // 保存前一段的结尾作为上下文
+    
+    for (const paragraph of paragraphs) {
+        // 如果当前段落本身就超过 chunkSize，需要按句子分割
+        if (paragraph.length > chunkSize) {
+            // 先保存当前累积的内容
+            if (currentChunk) {
+                chunks.push({
+                    text: currentChunk.trim(),
+                    previousContext: previousContext,
+                    nextContext: paragraph.substring(0, overlapSize) // 下一段的开头作为后文
+                });
+                previousContext = currentChunk.slice(-overlapSize); // 保存当前段的结尾
+                currentChunk = '';
+            }
+            
+            // 按句子分割长段落
+            const sentences = paragraph.split(/([。！？.!?]+)/);
+            let sentenceChunk = '';
+            
+            for (let i = 0; i < sentences.length; i += 2) {
+                const sentence = sentences[i] + (sentences[i + 1] || '');
+                
+                if (sentenceChunk.length + sentence.length > chunkSize) {
+                    if (sentenceChunk) {
+                        const nextSentence = sentences[i + 2] ? sentences[i + 2].substring(0, overlapSize) : '';
+                        chunks.push({
+                            text: sentenceChunk.trim(),
+                            previousContext: previousContext,
+                            nextContext: nextSentence
+                        });
+                        previousContext = sentenceChunk.slice(-overlapSize);
+                    }
+                    sentenceChunk = sentence;
+                } else {
+                    sentenceChunk += sentence;
+                }
+            }
+            
+            if (sentenceChunk) {
+                currentChunk = sentenceChunk;
+            }
+        } else {
+            // 检查添加这个段落是否会超过 chunkSize
+            if (currentChunk.length + paragraph.length + 2 > chunkSize) {
+                // 超过了，保存当前 chunk，开始新的
+                if (currentChunk) {
+                    chunks.push({
+                        text: currentChunk.trim(),
+                        previousContext: previousContext,
+                        nextContext: paragraph.substring(0, overlapSize)
+                    });
+                    previousContext = currentChunk.slice(-overlapSize);
+                }
+                currentChunk = paragraph;
+            } else {
+                // 没超过，添加到当前 chunk
+                currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
+            }
+        }
+    }
+    
+    // 保存最后一个 chunk
+    if (currentChunk) {
+        chunks.push({
+            text: currentChunk.trim(),
+            previousContext: previousContext,
+            nextContext: '' // 最后一段没有后文
+        });
+    }
+    
+    return chunks;
+}
+
 // 检测 API 类型（Anthropic 或 OpenAI 兼容）
-function detectAPIType(baseURL) {
-    // OpenAI 兼容接口特征：包含 /v1 或特定域名
-    const openaiCompatibleDomains = ['fucaixie.xyz', 'api123.icu'];
+// ========== AI 接口适配器 ==========
+
+/**
+ * 智能探测 API 类型
+ * 通过实际调用 API 来判断格式，适用于国内中转平台
+ * @param {string} baseURL - API Base URL
+ * @param {string} apiKey - API Key
+ * @returns {Promise<string>} API 类型
+ */
+async function probeAPIType(baseURL, apiKey) {
+    console.log(`[API 探测] 开始探测 API 类型: ${baseURL}`);
+    
+    // 探测策略：尝试 OpenAI 格式（最常见）
+    try {
+        // 确保 baseURL 包含 /v1
+        let testURL = baseURL;
+        if (!testURL.endsWith('/v1') && !testURL.includes('/v1/')) {
+            testURL = testURL.replace(/\/$/, '') + '/v1';
+        }
+        
+        const url = new URL(`${testURL}/models`);
+        const isHttps = url.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        
+        return new Promise((resolve) => {
+            const options = {
+                hostname: url.hostname,
+                port: url.port || (isHttps ? 443 : 80),
+                path: url.pathname + url.search,
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 5000 // 5秒超时
+            };
+            
+            const req = httpModule.request(options, (res) => {
+                let data = '';
+                
+                res.on('data', (chunk) => {
+                    data += chunk;
+                });
+                
+                res.on('end', () => {
+                    try {
+                        const response = JSON.parse(data);
+                        
+                        // 判断响应格式
+                        if (response.object === 'list' && response.data) {
+                            // OpenAI 格式特征
+                            console.log(`[API 探测] 识别为 OpenAI 格式（响应包含 object: 'list'）`);
+                            resolve('openai');
+                        } else if (response.models || response.model) {
+                            // 可能是其他格式，但也兼容 OpenAI
+                            console.log(`[API 探测] 识别为 OpenAI 兼容格式`);
+                            resolve('openai');
+                        } else {
+                            // 无法确定，使用默认
+                            console.log(`[API 探测] 无法确定格式，使用默认 OpenAI 格式`);
+                            resolve('openai');
+                        }
+                    } catch (error) {
+                        // JSON 解析失败，可能不是 OpenAI 格式
+                        console.log(`[API 探测] 响应解析失败，使用默认 OpenAI 格式`);
+                        resolve('openai');
+                    }
+                });
+            });
+            
+            req.on('error', () => {
+                // 请求失败，使用默认格式
+                console.log(`[API 探测] 请求失败，使用默认 OpenAI 格式`);
+                resolve('openai');
+            });
+            
+            req.on('timeout', () => {
+                req.destroy();
+                console.log(`[API 探测] 请求超时，使用默认 OpenAI 格式`);
+                resolve('openai');
+            });
+            
+            req.end();
+        });
+        
+    } catch (error) {
+        console.log(`[API 探测] 探测异常，使用默认 OpenAI 格式`);
+        return 'openai';
+    }
+}
+
+/**
+ * 检测 API 类型（增强版）
+ * 支持：OpenAI、Anthropic、Gemini、Cohere、通义千问、文心一言
+ * @param {string} baseURL - API Base URL
+ * @param {string} manualType - 手动指定的类型（可选）
+ * @param {string} apiKey - API Key（用于智能探测）
+ * @returns {Promise<string>|string} API 类型
+ */
+function detectAPIType(baseURL, manualType = 'auto', apiKey = null) {
+    // 如果手动指定了类型且不是 auto，直接返回
+    if (manualType && manualType !== 'auto') {
+        console.log(`[API 识别] 使用手动指定类型: ${manualType}`);
+        return manualType;
+    }
+    
+    // 自动识别
     const url = baseURL.toLowerCase();
     
-    // 检查是否是 OpenAI 兼容接口
-    if (url.includes('/v1') || openaiCompatibleDomains.some(domain => url.includes(domain))) {
+    // 第一步：URL 特征识别（快速判断官方服务）
+    
+    // Anthropic Claude 官方
+    if (url.includes('anthropic.com')) {
+        console.log(`[API 识别] URL 特征识别: Anthropic Claude 官方`);
+        return 'anthropic';
+    }
+    
+    // Google Gemini
+    if (url.includes('generativelanguage.googleapis.com')) {
+        console.log(`[API 识别] URL 特征识别: Google Gemini`);
+        return 'gemini';
+    }
+    
+    // Cohere
+    if (url.includes('cohere.ai') || url.includes('cohere.com')) {
+        console.log(`[API 识别] URL 特征识别: Cohere`);
+        return 'cohere';
+    }
+    
+    // 阿里云通义千问
+    if (url.includes('dashscope.aliyuncs.com')) {
+        console.log(`[API 识别] URL 特征识别: 阿里云通义千问`);
+        return 'qwen';
+    }
+    
+    // 百度文心一言
+    if (url.includes('aip.baidubce.com')) {
+        console.log(`[API 识别] URL 特征识别: 百度文心一言`);
+        return 'wenxin';
+    }
+    
+    // Azure OpenAI
+    if (url.includes('azure.com') || url.includes('openai.azure')) {
+        console.log(`[API 识别] URL 特征识别: Azure OpenAI`);
+        return 'azure-openai';
+    }
+    
+    // OpenAI 官方
+    if (url.includes('api.openai.com')) {
+        console.log(`[API 识别] URL 特征识别: OpenAI 官方`);
         return 'openai';
     }
     
-    // 默认使用 Anthropic
-    return 'anthropic';
+    // 第二步：常见中转平台识别
+    const knownProxyDomains = [
+        'fucaixie.xyz', 
+        'api123.icu',
+        'chatanywhere',
+        'api2d',
+        'closeai',
+        'openai-proxy',
+        'openai-sb',
+        'api-gpt',
+        'gpt-api',
+        'claude-api',
+        'ai-proxy'
+    ];
+    
+    if (knownProxyDomains.some(domain => url.includes(domain))) {
+        console.log(`[API 识别] 已知中转平台，使用 OpenAI 格式`);
+        return 'openai';
+    }
+    
+    // 第三步：路径特征识别
+    if (url.includes('/v1/chat/completions') || url.includes('/v1/models')) {
+        console.log(`[API 识别] 路径特征识别: OpenAI 格式（包含 /v1 路径）`);
+        return 'openai';
+    }
+    
+    // 第四步：智能探测（异步）
+    // 如果提供了 apiKey，尝试智能探测
+    if (apiKey) {
+        console.log(`[API 识别] URL 特征无法识别，将使用智能探测`);
+        // 返回 Promise，由调用方处理
+        return probeAPIType(baseURL, apiKey);
+    }
+    
+    // 默认使用 OpenAI 格式（最通用，国内中转平台大多使用此格式）
+    console.log(`[API 识别] 无法识别 URL: ${baseURL}，使用默认 OpenAI 格式（国内中转平台通用）`);
+    return 'openai';
 }
 
-// OpenAI 兼容接口调用
+/**
+ * 统一的 AI 调用接口
+ * 自动适配不同的 AI 服务
+ */
+async function callAI(baseURL, apiKey, model, prompt, manualType = 'auto') {
+    // 检测 API 类型（可能是异步的）
+    let apiType = detectAPIType(baseURL, manualType, apiKey);
+    
+    // 如果返回的是 Promise，等待结果
+    if (apiType instanceof Promise) {
+        apiType = await apiType;
+    }
+    
+    console.log(`[AI 调用] 使用 API 类型: ${apiType}`);
+    
+    switch (apiType) {
+        case 'openai':
+        case 'azure-openai':
+            return await callOpenAICompatible(baseURL, apiKey, model, prompt);
+        
+        case 'anthropic':
+            return await callAnthropic(baseURL, apiKey, model, prompt);
+        
+        case 'gemini':
+            return await callGemini(baseURL, apiKey, model, prompt);
+        
+        case 'cohere':
+            return await callCohere(baseURL, apiKey, model, prompt);
+        
+        case 'qwen':
+            return await callQwen(baseURL, apiKey, model, prompt);
+        
+        case 'wenxin':
+            return await callWenxin(baseURL, apiKey, model, prompt);
+        
+        case 'qwen':
+            return await callQwen(baseURL, apiKey, model, prompt);
+        
+        case 'wenxin':
+            return await callWenxin(baseURL, apiKey, model, prompt);
+        
+        default:
+            // 默认尝试 OpenAI 格式
+            return await callOpenAICompatible(baseURL, apiKey, model, prompt);
+    }
+}
+
+/**
+ * OpenAI 兼容接口调用
+ * 支持：OpenAI、Azure OpenAI、大部分国内中转
+ */
 async function callOpenAICompatible(baseURL, apiKey, model, prompt) {
     return new Promise((resolve, reject) => {
         // 确保 baseURL 包含 /v1
@@ -282,7 +601,8 @@ async function callOpenAICompatible(baseURL, apiKey, model, prompt) {
             messages: [
                 { role: 'user', content: prompt }
             ],
-            max_tokens: 4096
+            max_tokens: 4096,
+            temperature: 0.7
         });
         
         const url = new URL(`${apiURL}/chat/completions`);
@@ -298,7 +618,8 @@ async function callOpenAICompatible(baseURL, apiKey, model, prompt) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Length': Buffer.byteLength(postData)
-            }
+            },
+            timeout: 180000  // 180 秒超时（长文本需要更多时间）
         };
         
         const req = httpModule.request(options, (res) => {
@@ -313,12 +634,357 @@ async function callOpenAICompatible(baseURL, apiKey, model, prompt) {
                     if (res.statusCode >= 200 && res.statusCode < 300) {
                         const response = JSON.parse(data);
                         
-                        // 转换为 Anthropic 格式
+                        // 转换为统一格式
                         const result = {
                             content: [
-                                { text: response.choices[0].message.content }
+                                { text: response.choices[0].message.content || '' }
                             ],
-                            model: response.model,
+                            model: response.model || model,
+                            usage: {
+                                input_tokens: response.usage?.prompt_tokens || response.usage?.input_tokens || 0,
+                                output_tokens: response.usage?.completion_tokens || response.usage?.output_tokens || 0
+                            }
+                        };
+                        
+                        resolve(result);
+                    } else {
+                        reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                    }
+                } catch (error) {
+                    reject(new Error(`解析响应失败: ${error.message}`));
+                }
+            });
+        });
+        
+        req.on('error', (error) => {
+            reject(error);
+        });
+        
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('请求超时'));
+        });
+        
+        req.write(postData);
+        req.end();
+    });
+}
+
+/**
+ * Anthropic Claude 官方接口调用
+ */
+async function callAnthropic(baseURL, apiKey, model, prompt) {
+    const client = new Anthropic({
+        apiKey: apiKey,
+        baseURL: baseURL !== 'https://api.anthropic.com' ? baseURL : undefined
+    });
+    
+    const response = await client.messages.create({
+        model: model,
+        max_tokens: 4096,
+        messages: [
+            { role: 'user', content: prompt }
+        ]
+    });
+    
+    return response;
+}
+
+/**
+ * Google Gemini 接口调用
+ */
+async function callGemini(baseURL, apiKey, model, prompt) {
+    return new Promise((resolve, reject) => {
+        // Gemini API 格式
+        const apiURL = baseURL.includes('generativelanguage.googleapis.com') 
+            ? baseURL 
+            : 'https://generativelanguage.googleapis.com';
+        
+        const postData = JSON.stringify({
+            contents: [{
+                parts: [{ text: prompt }]
+            }],
+            generationConfig: {
+                maxOutputTokens: 4096,
+                temperature: 0.7
+            }
+        });
+        
+        const url = new URL(`${apiURL}/v1beta/models/${model}:generateContent?key=${apiKey}`);
+        const isHttps = url.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        
+        const options = {
+            hostname: url.hostname,
+            port: url.port || (isHttps ? 443 : 80),
+            path: url.pathname + url.search,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+            },
+            timeout: 60000
+        };
+        
+        const req = httpModule.request(options, (res) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            
+            res.on('end', () => {
+                try {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        const response = JSON.parse(data);
+                        
+                        // 转换为统一格式
+                        const result = {
+                            content: [
+                                { text: response.candidates[0].content.parts[0].text || '' }
+                            ],
+                            model: model,
+                            usage: {
+                                input_tokens: response.usageMetadata?.promptTokenCount || 0,
+                                output_tokens: response.usageMetadata?.candidatesTokenCount || 0
+                            }
+                        };
+                        
+                        resolve(result);
+                    } else {
+                        reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                    }
+                } catch (error) {
+                    reject(new Error(`解析响应失败: ${error.message}`));
+                }
+            });
+        });
+        
+        req.on('error', (error) => {
+            reject(error);
+        });
+        
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('请求超时'));
+        });
+        
+        req.write(postData);
+        req.end();
+    });
+}
+
+/**
+ * Cohere 接口调用
+ */
+async function callCohere(baseURL, apiKey, model, prompt) {
+    return new Promise((resolve, reject) => {
+        const apiURL = baseURL.includes('cohere') ? baseURL : 'https://api.cohere.ai';
+        
+        const postData = JSON.stringify({
+            model: model,
+            message: prompt,
+            max_tokens: 4096,
+            temperature: 0.7
+        });
+        
+        const url = new URL(`${apiURL}/v1/chat`);
+        const isHttps = url.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        
+        const options = {
+            hostname: url.hostname,
+            port: url.port || (isHttps ? 443 : 80),
+            path: url.pathname,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Length': Buffer.byteLength(postData)
+            },
+            timeout: 60000
+        };
+        
+        const req = httpModule.request(options, (res) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            
+            res.on('end', () => {
+                try {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        const response = JSON.parse(data);
+                        
+                        // 转换为统一格式
+                        const result = {
+                            content: [
+                                { text: response.text || '' }
+                            ],
+                            model: model,
+                            usage: {
+                                input_tokens: response.meta?.tokens?.input_tokens || 0,
+                                output_tokens: response.meta?.tokens?.output_tokens || 0
+                            }
+                        };
+                        
+                        resolve(result);
+                    } else {
+                        reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                    }
+                } catch (error) {
+                    reject(new Error(`解析响应失败: ${error.message}`));
+                }
+            });
+        });
+        
+        req.on('error', (error) => {
+            reject(error);
+        });
+        
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('请求超时'));
+        });
+        
+        req.write(postData);
+        req.end();
+    });
+}
+
+/**
+ * 阿里云通义千问接口调用
+ */
+async function callQwen(baseURL, apiKey, model, prompt) {
+    return new Promise((resolve, reject) => {
+        const apiURL = baseURL.includes('dashscope') ? baseURL : 'https://dashscope.aliyuncs.com';
+        
+        const postData = JSON.stringify({
+            model: model,
+            input: {
+                messages: [
+                    { role: 'user', content: prompt }
+                ]
+            },
+            parameters: {
+                max_tokens: 4096
+            }
+        });
+        
+        const url = new URL(`${apiURL}/api/v1/services/aigc/text-generation/generation`);
+        const isHttps = url.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        
+        const options = {
+            hostname: url.hostname,
+            port: url.port || (isHttps ? 443 : 80),
+            path: url.pathname,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Length': Buffer.byteLength(postData)
+            },
+            timeout: 60000
+        };
+        
+        const req = httpModule.request(options, (res) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            
+            res.on('end', () => {
+                try {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        const response = JSON.parse(data);
+                        
+                        // 转换为统一格式
+                        const result = {
+                            content: [
+                                { text: response.output?.text || '' }
+                            ],
+                            model: model,
+                            usage: {
+                                input_tokens: response.usage?.input_tokens || 0,
+                                output_tokens: response.usage?.output_tokens || 0
+                            }
+                        };
+                        
+                        resolve(result);
+                    } else {
+                        reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                    }
+                } catch (error) {
+                    reject(new Error(`解析响应失败: ${error.message}`));
+                }
+            });
+        });
+        
+        req.on('error', (error) => {
+            reject(error);
+        });
+        
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('请求超时'));
+        });
+        
+        req.write(postData);
+        req.end();
+    });
+}
+
+/**
+ * 百度文心一言接口调用
+ */
+async function callWenxin(baseURL, apiKey, model, prompt) {
+    return new Promise((resolve, reject) => {
+        const apiURL = baseURL.includes('baidubce') ? baseURL : 'https://aip.baidubce.com';
+        
+        const postData = JSON.stringify({
+            messages: [
+                { role: 'user', content: prompt }
+            ],
+            max_output_tokens: 4096
+        });
+        
+        const url = new URL(`${apiURL}/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/${model}?access_token=${apiKey}`);
+        const isHttps = url.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        
+        const options = {
+            hostname: url.hostname,
+            port: url.port || (isHttps ? 443 : 80),
+            path: url.pathname + url.search,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+            },
+            timeout: 60000
+        };
+        
+        const req = httpModule.request(options, (res) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            
+            res.on('end', () => {
+                try {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        const response = JSON.parse(data);
+                        
+                        // 转换为统一格式
+                        const result = {
+                            content: [
+                                { text: response.result || '' }
+                            ],
+                            model: model,
                             usage: {
                                 input_tokens: response.usage?.prompt_tokens || 0,
                                 output_tokens: response.usage?.completion_tokens || 0
@@ -339,6 +1005,11 @@ async function callOpenAICompatible(baseURL, apiKey, model, prompt) {
             reject(error);
         });
         
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('请求超时'));
+        });
+        
         req.write(postData);
         req.end();
     });
@@ -357,22 +1028,23 @@ function getClaudeClient(apiKey) {
     });
 }
 
-// 路由：首页
+// 路由：首页（自动跳转）
 app.get('/', (req, res) => {
-    const indexPath = path.join(__dirname, 'public', 'index.html');
-    if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-    } else {
-        res.send(`
-            <html>
-                <body>
-                    <h1>SEO API 服务运行中</h1>
-                    <p>API 文档: <a href="/api/docs">/api/docs</a></p>
-                    <p>健康检查: <a href="/health">/health</a></p>
-                </body>
-            </html>
-        `);
+    // 检查是否有会话 token
+    const token = req.cookies?.sessionToken || req.headers['x-session-token'];
+    
+    if (token) {
+        const sessions = getSessions();
+        const session = sessions[token];
+        
+        if (session && new Date(session.expiresAt) > new Date()) {
+            // 已登录，跳转到主界面
+            return res.redirect('/index.html');
+        }
     }
+    
+    // 未登录，跳转到登录页
+    res.redirect('/login.html');
 });
 
 // ========== 认证相关路由 ==========
@@ -468,8 +1140,9 @@ app.get('/api/auth/me', verifySession, (req, res) => {
             username: req.user.username,
             role: req.user.role,
             apiKey: req.user.apiKey,
-            claudeApiKey: req.user.claudeApiKey ? '已配置' : '未配置',
+            claudeApiKey: req.user.claudeApiKey || '',
             claudeBaseURL: req.user.claudeBaseURL || 'https://api.api123.icu',
+            apiType: req.user.apiType || 'auto',
             defaultModel: req.user.defaultModel || 'claude-sonnet-4-5-20250929',
             defaultMode: req.user.defaultMode || 'humanlike'
         }
@@ -731,6 +1404,39 @@ app.post('/api/users/claude-baseurl', verifySession, (req, res) => {
     }
 });
 
+// 路由：设置 API 类型
+app.post('/api/users/api-type', verifySession, (req, res) => {
+    try {
+        const { apiType } = req.body;
+        
+        const validTypes = ['auto', 'openai', 'anthropic', 'gemini', 'cohere', 'qwen', 'wenxin', 'azure-openai'];
+        
+        if (!apiType || !validTypes.includes(apiType)) {
+            return res.json({
+                success: false,
+                error: '无效的 API 类型'
+            });
+        }
+        
+        const users = getUsers();
+        users[req.user.username].apiType = apiType;
+        saveUsers(users);
+        
+        console.log(`用户 ${req.user.username} 设置 API 类型: ${apiType}`);
+        
+        res.json({
+            success: true,
+            message: 'API 类型设置成功'
+        });
+        
+    } catch (error) {
+        res.json({
+            success: false,
+            error: '设置失败'
+        });
+    }
+});
+
 // 路由：更新用户默认模型和模式
 app.post('/api/users/defaults', verifySession, (req, res) => {
     try {
@@ -796,10 +1502,17 @@ app.get('/health', (req, res) => {
     });
 });
 
-// 路由：文本改写（兼容 5118 格式和标准格式）- 需要 API Key + 速率限制
-app.post('/api/rewrite', apiLimiter, verifyApiKey, async (req, res) => {
+// 路由：文本改写（兼容 5118 格式和标准格式）- 需要 API Key（无速率限制）
+app.post('/api/rewrite', verifyApiKey, async (req, res) => {
     const requestId = crypto.randomBytes(8).toString('hex'); // 生成请求 ID
     const startTime = Date.now();
+    
+    // 在外部定义变量，以便在 catch 块中使用
+    let baseURL = '';
+    let apiType = '';
+    let model = '';
+    let mode = '';
+    let text = '';
     
     try {
         // 记录详细的请求信息
@@ -823,9 +1536,9 @@ app.post('/api/rewrite', apiLimiter, verifyApiKey, async (req, res) => {
         }));
         
         // 兼容多种参数格式，使用用户配置的默认值
-        const text = req.body.text || req.body.txt || '';
-        const mode = req.body.mode || req.user.defaultMode || 'humanlike';
-        const model = req.body.model || req.user.defaultModel || 'claude-sonnet-4-5-20250929';
+        text = req.body.text || req.body.txt || '';
+        mode = req.body.mode || req.user.defaultMode || 'humanlike';
+        model = req.body.model || req.user.defaultModel || 'claude-sonnet-4-5-20250929';
         const returnSimilarity = req.body.sim === 1 || req.body.sim === '1';
         
         console.log(`[请求 ${requestId}] 解析后参数: 文本长度=${text.length}, 模式=${mode}, 模型=${model}, 返回相似度=${returnSimilarity}`);
@@ -840,16 +1553,8 @@ app.post('/api/rewrite', apiLimiter, verifyApiKey, async (req, res) => {
             });
         }
         
-        if (text.length > 5000) {
-            console.log(`[请求 ${requestId}] ❌ 错误: 文本长度超限 (${text.length} > 5000)`);
-            return res.json({
-                errcode: '200500',
-                errmsg: '内容长度不能超过5000个字符',
-                data: ''
-            });
-        }
-        
         console.log(`[请求 ${requestId}] ✓ 参数验证通过`);
+        console.log(`[请求 ${requestId}] 文本长度: ${text.length} 字符`);
         console.log(`[请求 ${requestId}] 文本预览: ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`);
         
         // 使用用户的 Claude API Key
@@ -865,55 +1570,116 @@ app.post('/api/rewrite', apiLimiter, verifyApiKey, async (req, res) => {
         console.log(`[请求 ${requestId}] ✓ Claude API Key 已配置`);
         
         // 使用用户配置的 Base URL，如果没有则使用默认值
-        const baseURL = req.user.claudeBaseURL || 'https://api.api123.icu';
+        baseURL = req.user.claudeBaseURL || 'https://api.api123.icu';
         console.log(`[请求 ${requestId}] Claude API 地址: ${baseURL}`);
         
         // 检测 API 类型
-        const apiType = detectAPIType(baseURL);
-        console.log(`[请求 ${requestId}] API 类型: ${apiType === 'openai' ? 'OpenAI 兼容' : 'Anthropic'}`);
+        apiType = detectAPIType(baseURL, req.user.apiType || 'auto');
+        console.log(`[请求 ${requestId}] API 类型: ${apiType}${req.user.apiType && req.user.apiType !== 'auto' ? ' (手动指定)' : ' (自动识别)'}`);
         
-        // 构建提示词
-        const prompt = `${REWRITE_PROMPTS[mode] || REWRITE_PROMPTS.standard}\n\n原文：\n${text}\n\n改写后的文本：`;
-        console.log(`[请求 ${requestId}] 提示词长度: ${prompt.length} 字符`);
+        // 检查是否需要分段处理（超过 2000 字符）
+        const CHUNK_SIZE = 1800; // 每段 1800 字符（安全值）
+        const needsChunking = text.length > 2000;
         
-        // 调用 API
-        console.log(`[请求 ${requestId}] 🚀 开始调用 API...`);
+        let rewrittenText = '';
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
         const apiStartTime = Date.now();
         
-        let message;
-        if (apiType === 'openai') {
-            // 使用 OpenAI 兼容接口
-            message = await callOpenAICompatible(baseURL, req.user.claudeApiKey, model, prompt);
-        } else {
-            // 使用 Anthropic 接口
-            const client = new Anthropic({
-                apiKey: req.user.claudeApiKey,
-                baseURL: baseURL
-            });
+        if (needsChunking) {
+            console.log(`[请求 ${requestId}] 📊 检测到超长文本: ${text.length} 字符`);
+            console.log(`[请求 ${requestId}] 🔄 启用分段处理模式（带上下文重叠），每段 ${CHUNK_SIZE} 字符`);
             
-            message = await client.messages.create({
-                model: model,
-                max_tokens: 4096,
-                messages: [
-                    { role: 'user', content: prompt }
-                ]
-            });
+            // 智能分段（带上下文）
+            const chunks = smartSplitText(text, CHUNK_SIZE, 200);
+            console.log(`[请求 ${requestId}] 📝 分为 ${chunks.length} 段处理`);
+            
+            const rewrittenChunks = [];
+            
+            for (let i = 0; i < chunks.length; i++) {
+                const chunk = chunks[i];
+                console.log(`[请求 ${requestId}] 🚀 处理第 ${i + 1}/${chunks.length} 段 (${chunk.text.length} 字符)...`);
+                
+                // 构建带上下文的提示词
+                let contextPrompt = REWRITE_PROMPTS[mode] || REWRITE_PROMPTS.standard;
+                
+                // 添加上下文信息
+                if (chunk.previousContext || chunk.nextContext) {
+                    contextPrompt += '\n\n【重要提示】这是一篇长文章的一部分，请注意保持与前后文的连贯性：';
+                    
+                    if (chunk.previousContext) {
+                        contextPrompt += `\n\n前文参考（仅供理解上下文，不要改写）：\n"...${chunk.previousContext}"`;
+                    }
+                    
+                    if (chunk.nextContext) {
+                        contextPrompt += `\n\n后文参考（仅供理解上下文，不要改写）：\n"${chunk.nextContext}..."`;
+                    }
+                }
+                
+                const prompt = `${contextPrompt}\n\n原文：\n${chunk.text}\n\n改写后的文本：`;
+                
+                const chunkStartTime = Date.now();
+                const message = await callAI(baseURL, req.user.claudeApiKey, model, prompt, req.user.apiType || 'auto');
+                const chunkDuration = (Date.now() - chunkStartTime) / 1000;
+                
+                // 提取改写结果
+                let chunkRewritten = '';
+                if (message && message.content && Array.isArray(message.content) && message.content.length > 0) {
+                    chunkRewritten = message.content[0].text || '';
+                }
+                
+                rewrittenChunks.push(chunkRewritten);
+                
+                // 累计 token 使用
+                if (message.usage) {
+                    totalInputTokens += message.usage.input_tokens || 0;
+                    totalOutputTokens += message.usage.output_tokens || 0;
+                }
+                
+                console.log(`[请求 ${requestId}] ✓ 第 ${i + 1} 段完成，耗时: ${chunkDuration.toFixed(2)}秒，输出: ${chunkRewritten.length} 字符`);
+            }
+            
+            // 合并所有段落
+            rewrittenText = rewrittenChunks.join('\n\n');
+            
+            const apiDuration = (Date.now() - apiStartTime) / 1000;
+            console.log(`[请求 ${requestId}] ✓ 分段处理完成，总耗时: ${apiDuration.toFixed(2)}秒`);
+            console.log(`[请求 ${requestId}] 📊 总 Token 使用: 输入=${totalInputTokens}, 输出=${totalOutputTokens}`);
+            
+        } else {
+            // 正常处理（不分段）
+            console.log(`[请求 ${requestId}] 📝 文本长度正常，使用标准处理模式`);
+            
+            // 构建提示词
+            const prompt = `${REWRITE_PROMPTS[mode] || REWRITE_PROMPTS.standard}\n\n原文：\n${text}\n\n改写后的文本：`;
+            console.log(`[请求 ${requestId}] 提示词长度: ${prompt.length} 字符`);
+            
+            // 调用 AI（使用统一接口，自动适配）
+            console.log(`[请求 ${requestId}] 🚀 开始调用 AI...`);
+            
+            const message = await callAI(baseURL, req.user.claudeApiKey, model, prompt, req.user.apiType || 'auto');
+            
+            const apiDuration = (Date.now() - apiStartTime) / 1000;
+            console.log(`[请求 ${requestId}] ✓ AI 调用成功，耗时: ${apiDuration.toFixed(2)}秒`);
+            
+            // 安全地提取响应文本
+            if (message && message.content && Array.isArray(message.content) && message.content.length > 0) {
+                rewrittenText = message.content[0].text || '';
+            }
+            
+            console.log(`[请求 ${requestId}] 响应内容长度: ${rewrittenText.length} 字符`);
+            
+            // 打印 token 使用情况
+            if (message.usage) {
+                totalInputTokens = message.usage.input_tokens || 0;
+                totalOutputTokens = message.usage.output_tokens || 0;
+                console.log(`[请求 ${requestId}] Token 使用: 输入=${totalInputTokens}, 输出=${totalOutputTokens}`);
+            } else {
+                console.log(`[请求 ${requestId}] ⚠️ 警告: 未返回 token 使用信息`);
+            }
         }
-        
-        const apiDuration = (Date.now() - apiStartTime) / 1000;
-        console.log(`[请求 ${requestId}] ✓ API 调用成功，耗时: ${apiDuration.toFixed(2)}秒`);
         
         const duration = (Date.now() - startTime) / 1000;
-        
-        // 安全地提取响应文本
-        let rewrittenText = '';
-        if (message && message.content && Array.isArray(message.content) && message.content.length > 0) {
-            rewrittenText = message.content[0].text || '';
-        }
-        
-        console.log(`[请求 ${requestId}] 响应内容长度: ${rewrittenText.length} 字符`);
-        console.log(`[请求 ${requestId}] Token 使用: 输入=${message.usage.input_tokens}, 输出=${message.usage.output_tokens}`);
-        
         if (!rewrittenText) {
             console.log(`[请求 ${requestId}] ❌ 错误: API 返回内容为空`);
             throw new Error('API 返回内容为空');
@@ -948,6 +1714,24 @@ app.post('/api/rewrite', apiLimiter, verifyApiKey, async (req, res) => {
         console.log(`[请求 ${requestId}] ✓ 改写完成 - 总耗时: ${duration.toFixed(2)}秒, 输出长度: ${rewrittenText.length}`);
         console.log(`[请求 ${requestId}] 输出预览: ${rewrittenText.substring(0, 100)}${rewrittenText.length > 100 ? '...' : ''}`);
         
+        // 记录成功的 API 调用
+        logger.logAPICall({
+            requestId: requestId,
+            username: req.user.username,
+            status: 'success',
+            baseURL: baseURL,
+            apiType: apiType,
+            model: model,
+            mode: mode,
+            inputLength: text.length,
+            outputLength: rewrittenText.length,
+            duration: duration,
+            apiDuration: (Date.now() - apiStartTime) / 1000,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            clientIP: req.ip,
+            userAgent: req.headers['user-agent'] || 'Unknown'
+        });
         // 计算相似度（简单模拟，实际可以用更复杂的算法）
         const similarity = returnSimilarity ? calculateSimilarity(text, rewrittenText) : null;
         
@@ -964,18 +1748,16 @@ app.post('/api/rewrite', apiLimiter, verifyApiKey, async (req, res) => {
             response.like = similarity;
         }
         
-        // 只在开发环境或明确请求时返回元数据
-        if (process.env.NODE_ENV === 'development' || req.query.debug === '1') {
-            response._meta = {
-                mode: mode,
-                model: model,
-                duration: duration,
-                usage: {
-                    input_tokens: message.usage.input_tokens,
-                    output_tokens: message.usage.output_tokens
-                }
-            };
-        }
+        // 始终返回元数据（用于 Web 界面显示）
+        response._meta = {
+            mode: mode,
+            model: model,
+            duration: duration,
+            usage: {
+                input_tokens: totalInputTokens,
+                output_tokens: totalOutputTokens
+            }
+        };
         
         console.log(`[请求 ${requestId}] 📤 准备返回响应`);
         console.log(`[请求 ${requestId}] 响应格式:`, JSON.stringify({
@@ -1034,6 +1816,27 @@ app.post('/api/rewrite', apiLimiter, verifyApiKey, async (req, res) => {
         }
         
         console.log(`[请求 ${requestId}] 📤 返回错误响应: errcode=${errcode}, errmsg=${errmsg}`);
+        
+        // 记录失败的 API 调用
+        logger.logAPICall({
+            requestId: requestId,
+            username: req.user.username,
+            status: 'error',
+            baseURL: baseURL || req.user.claudeBaseURL || 'unknown',
+            apiType: apiType || 'unknown',
+            model: model || 'unknown',
+            mode: mode || 'unknown',
+            inputLength: text?.length || 0,
+            outputLength: 0,
+            duration: (Date.now() - startTime) / 1000,
+            apiDuration: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            errorCode: errcode,
+            errorMessage: errmsg,
+            clientIP: req.ip,
+            userAgent: req.headers['user-agent'] || 'Unknown'
+        });
         
         // 5118 格式错误返回
         const errorResponse = {
@@ -1176,6 +1979,108 @@ app.get('/api/modes', (req, res) => {
         modes: modes,
         total: modes.length
     });
+});
+
+// 路由：获取统计数据（需要登录）
+app.get('/api/stats', verifySession, (req, res) => {
+    try {
+        const stats = logger.getStats();
+        
+        if (!stats) {
+            return res.json({
+                success: true,
+                stats: {
+                    total: { calls: 0, success: 0, error: 0, totalTokens: 0, totalDuration: 0 },
+                    byUser: {},
+                    byModel: {},
+                    byMode: {},
+                    byBaseURL: {},
+                    byDate: {}
+                }
+            });
+        }
+        
+        // 如果不是管理员，只返回自己的统计
+        if (req.user.role !== 'admin') {
+            const userStats = stats.byUser[req.user.username] || {
+                calls: 0,
+                success: 0,
+                error: 0,
+                totalTokens: 0,
+                totalDuration: 0
+            };
+            
+            return res.json({
+                success: true,
+                stats: {
+                    user: userStats,
+                    lastUpdated: stats.lastUpdated
+                }
+            });
+        }
+        
+        // 管理员返回完整统计
+        res.json({
+            success: true,
+            stats: stats
+        });
+        
+    } catch (error) {
+        res.json({
+            success: false,
+            error: '获取统计数据失败'
+        });
+    }
+});
+
+// 路由：获取用户日志（需要登录）
+app.get('/api/logs', verifySession, (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 100;
+        const username = req.user.role === 'admin' && req.query.username 
+            ? req.query.username 
+            : req.user.username;
+        
+        const logs = logger.getUserLogs(username, limit);
+        
+        res.json({
+            success: true,
+            logs: logs,
+            total: logs.length
+        });
+        
+    } catch (error) {
+        res.json({
+            success: false,
+            error: '获取日志失败'
+        });
+    }
+});
+
+// 路由：清理旧日志（仅管理员）
+app.post('/api/logs/clean', verifySession, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({
+            success: false,
+            error: '权限不足'
+        });
+    }
+    
+    try {
+        const daysToKeep = parseInt(req.body.daysToKeep) || 30;
+        logger.cleanOldLogs(daysToKeep);
+        
+        res.json({
+            success: true,
+            message: `已清理 ${daysToKeep} 天前的日志`
+        });
+        
+    } catch (error) {
+        res.json({
+            success: false,
+            error: '清理日志失败'
+        });
+    }
 });
 
 // 路由：获取单个模式详情

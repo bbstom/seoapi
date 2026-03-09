@@ -5,9 +5,10 @@
     "apiKey": "sk_f7747efeefece9fbeb79bfecd825e01ff427c2f343acd398f6f3713469906d00",
     "role": "admin",
     "createdAt": "2026-03-08T03:22:00.276Z",
-    "claudeApiKey": "sk-M39fZlDSgGyu0tPuqLAf0WzmcPSzJG7xhSFrGhzhVq3NvIiW",
-    "claudeBaseURL": "https://api123.icu",
+    "claudeApiKey": "sk-pO3064DHJ9NtCwYpQ7GFyNTe27ZL2CElLMEYhvq6JiE3dQtC",
+    "claudeBaseURL": "https://fucaixie.xyz",
     "defaultModel": "claude-sonnet-4-5-20250929",
-    "defaultMode": "seo_fast"
+    "defaultMode": "seo_fast",
+    "apiType": "auto"
   }
 }
