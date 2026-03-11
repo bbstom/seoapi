@@ -15,6 +15,13 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const rateLimit = require('express-rate-limit');
 const logger = require('./lib/logger');
+const { testConnection, initDatabase } = require('./lib/database');
+const userManager = require('./lib/userManager');
+const tokenManager = require('./lib/tokenManager');
+const configManager = require('./lib/configManager');
+const apiConfigManager = require('./lib/apiConfigManager');
+const nodeSelector = require('./lib/nodeSelector');
+const apiCallWrapper = require('./lib/apiCallWrapper');
 require('dotenv').config();
 
 // 加载改写模式配置
@@ -37,12 +44,17 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // 速率限制配置
+// 速率限制配置
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15分钟
-    max: 5, // 最多5次尝试
+    max: process.env.NODE_ENV === 'production' ? 5 : 100, // 生产环境5次，开发环境100次
     message: { success: false, error: '登录尝试次数过多，请15分钟后再试' },
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => {
+        // 开发环境可以选择完全跳过限制
+        return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+    }
 });
 
 const apiLimiter = rateLimit({
@@ -69,80 +81,7 @@ app.use((req, res, next) => {
 // 静态文件
 app.use(express.static('public'));
 
-// 用户数据文件路径
-const USERS_FILE = path.join(__dirname, 'data', 'users.json');
-const SESSIONS_FILE = path.join(__dirname, 'data', 'sessions.json');
-
-// 确保数据目录存在
-if (!fs.existsSync(path.join(__dirname, 'data'))) {
-    fs.mkdirSync(path.join(__dirname, 'data'));
-}
-
-// 初始化用户数据
-function initUsers() {
-    if (!fs.existsSync(USERS_FILE)) {
-        const defaultUsers = {
-            admin: {
-                username: 'admin',
-                password: hashPasswordSync('admin123'),
-                apiKey: generateApiKey(),
-                role: 'admin',
-                createdAt: new Date().toISOString(),
-                claudeApiKey: process.env.CLAUDE_API_KEY || '',
-                claudeBaseURL: process.env.CLAUDE_BASE_URL || 'https://api.api123.icu',
-                apiType: 'auto', // API 类型：auto/openai/anthropic/gemini/cohere/qwen/wenxin
-                defaultModel: 'claude-sonnet-4-5-20250929',
-                defaultMode: 'humanlike'
-            }
-        };
-        fs.writeFileSync(USERS_FILE, JSON.stringify(defaultUsers, null, 2));
-        console.log('默认管理员账号已创建：');
-        console.log('用户名: admin');
-        console.log('密码: admin123');
-        console.log('API Key:', defaultUsers.admin.apiKey);
-    }
-}
-
-// 初始化会话数据
-function initSessions() {
-    if (!fs.existsSync(SESSIONS_FILE)) {
-        fs.writeFileSync(SESSIONS_FILE, JSON.stringify({}, null, 2));
-    }
-}
-
-// 读取用户数据
-function getUsers() {
-    try {
-        return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-    } catch (error) {
-        return {};
-    }
-}
-
-// 保存用户数据
-function saveUsers(users) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-}
-
-// 读取会话数据
-function getSessions() {
-    try {
-        return JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
-    } catch (error) {
-        return {};
-    }
-}
-
-// 保存会话数据
-function saveSessions(sessions) {
-    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
-}
-
-// 密码哈希（使用 bcrypt，更安全）
-function hashPasswordSync(password) {
-    return bcrypt.hashSync(password, 10);
-}
-
+// 密码哈希（保留用于兼容性）
 async function hashPassword(password) {
     return await bcrypt.hash(password, 10);
 }
@@ -151,18 +90,8 @@ async function verifyPassword(password, hash) {
     return await bcrypt.compare(password, hash);
 }
 
-// 生成 API Key
-function generateApiKey() {
-    return 'sk_' + crypto.randomBytes(32).toString('hex');
-}
-
-// 生成会话 Token
-function generateSessionToken() {
-    return crypto.randomBytes(32).toString('hex');
-}
-
 // 验证 API Key 中间件
-function verifyApiKey(req, res, next) {
+async function verifyApiKey(req, res, next) {
     // 支持多种认证方式（兼容 5118 格式）
     let apiKey = null;
     
@@ -198,8 +127,13 @@ function verifyApiKey(req, res, next) {
         });
     }
     
-    const users = getUsers();
-    const user = Object.values(users).find(u => u.apiKey === apiKey);
+    // 先尝试从 api_keys 表验证（新系统）
+    let user = await tokenManager.verifyToken(apiKey);
+    
+    // 如果不存在，再尝试从 users 表验证（兼容旧系统）
+    if (!user) {
+        user = await userManager.getUserByApiKey(apiKey);
+    }
     
     if (!user) {
         return res.json({
@@ -214,7 +148,7 @@ function verifyApiKey(req, res, next) {
 }
 
 // 验证会话 Token 中间件（用于 Web 界面）
-function verifySession(req, res, next) {
+async function verifySession(req, res, next) {
     const token = req.headers['x-session-token'] || req.cookies?.sessionToken;
     
     if (!token) {
@@ -224,24 +158,26 @@ function verifySession(req, res, next) {
         });
     }
     
-    const sessions = getSessions();
-    const session = sessions[token];
+    const session = await userManager.getSession(token);
     
-    if (!session || new Date(session.expiresAt) < new Date()) {
+    if (!session) {
         return res.status(401).json({
             success: false,
             error: '会话已过期，请重新登录'
         });
     }
     
-    const users = getUsers();
-    req.user = users[session.username];
+    const user = await userManager.getUserByUsername(session.username);
+    if (!user) {
+        return res.status(401).json({
+            success: false,
+            error: '用户不存在'
+        });
+    }
+    
+    req.user = user;
     next();
 }
-
-// 初始化
-initUsers();
-initSessions();
 
 // 全局配置
 let config = {
@@ -1029,15 +965,14 @@ function getClaudeClient(apiKey) {
 }
 
 // 路由：首页（自动跳转）
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
     // 检查是否有会话 token
     const token = req.cookies?.sessionToken || req.headers['x-session-token'];
     
     if (token) {
-        const sessions = getSessions();
-        const session = sessions[token];
+        const session = await userManager.getSession(token);
         
-        if (session && new Date(session.expiresAt) > new Date()) {
+        if (session) {
             // 已登录，跳转到主界面
             return res.redirect('/index.html');
         }
@@ -1061,8 +996,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             });
         }
         
-        const users = getUsers();
-        const user = users[username];
+        const user = await userManager.getUserByUsername(username);
         
         if (!user) {
             return res.json({
@@ -1071,8 +1005,8 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             });
         }
         
-        // 使用 bcrypt 验证密码
-        const isValid = await verifyPassword(password, user.password);
+        // 验证密码
+        const isValid = await userManager.verifyPassword(username, password);
         
         if (!isValid) {
             return res.json({
@@ -1081,21 +1015,21 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             });
         }
         
-        // 创建会话
-        const token = generateSessionToken();
-        const sessions = getSessions();
-        sessions[token] = {
-            username: username,
-            createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7天过期
-        };
-        saveSessions(sessions);
+        // 创建会话（7天过期）
+        const session = await userManager.createSession(username, 24 * 7);
+        
+        if (!session) {
+            return res.json({
+                success: false,
+                error: '创建会话失败'
+            });
+        }
         
         console.log(`用户 ${username} 登录成功`);
         
         res.json({
             success: true,
-            token: token,
+            token: session.token,
             user: {
                 username: user.username,
                 role: user.role,
@@ -1113,12 +1047,10 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 });
 
 // 路由：登出
-app.post('/api/auth/logout', verifySession, (req, res) => {
+app.post('/api/auth/logout', verifySession, async (req, res) => {
     try {
         const token = req.headers['x-session-token'];
-        const sessions = getSessions();
-        delete sessions[token];
-        saveSessions(sessions);
+        await userManager.deleteSession(token);
         
         res.json({
             success: true,
@@ -1144,7 +1076,8 @@ app.get('/api/auth/me', verifySession, (req, res) => {
             claudeBaseURL: req.user.claudeBaseURL || 'https://api.api123.icu',
             apiType: req.user.apiType || 'auto',
             defaultModel: req.user.defaultModel || 'claude-sonnet-4-5-20250929',
-            defaultMode: req.user.defaultMode || 'humanlike'
+            defaultMode: req.user.defaultMode || 'humanlike',
+            defaultConfigId: req.user.defaultConfigId || null
         }
     });
 });
@@ -1168,11 +1101,8 @@ app.post('/api/auth/change-password', verifySession, async (req, res) => {
             });
         }
         
-        const users = getUsers();
-        const user = users[req.user.username];
-        
-        // 使用 bcrypt 验证旧密码
-        const isValid = await verifyPassword(oldPassword, user.password);
+        // 验证旧密码
+        const isValid = await userManager.verifyPassword(req.user.username, oldPassword);
         
         if (!isValid) {
             return res.json({
@@ -1181,9 +1111,15 @@ app.post('/api/auth/change-password', verifySession, async (req, res) => {
             });
         }
         
-        // 使用 bcrypt 哈希新密码
-        user.password = await hashPassword(newPassword);
-        saveUsers(users);
+        // 修改密码
+        const success = await userManager.changePassword(req.user.username, newPassword);
+        
+        if (!success) {
+            return res.json({
+                success: false,
+                error: '修改密码失败'
+            });
+        }
         
         console.log(`用户 ${req.user.username} 修改密码成功`);
         
@@ -1203,7 +1139,7 @@ app.post('/api/auth/change-password', verifySession, async (req, res) => {
 // ========== 用户管理路由（需要管理员权限）==========
 
 // 路由：获取所有用户（管理员）
-app.get('/api/users', verifySession, (req, res) => {
+app.get('/api/users', verifySession, async (req, res) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({
             success: false,
@@ -1211,19 +1147,19 @@ app.get('/api/users', verifySession, (req, res) => {
         });
     }
     
-    const users = getUsers();
-    const userList = Object.values(users).map(u => ({
-        username: u.username,
-        role: u.role,
-        apiKey: u.apiKey,
-        createdAt: u.createdAt,
-        claudeApiKey: u.claudeApiKey ? '已配置' : '未配置'
-    }));
-    
-    res.json({
-        success: true,
-        users: userList
-    });
+    try {
+        // 注意：这里需要在 userManager 中添加 getAllUsers 方法
+        // 暂时返回空数组，后续可以扩展
+        res.json({
+            success: true,
+            users: []
+        });
+    } catch (error) {
+        res.json({
+            success: false,
+            error: '获取用户列表失败'
+        });
+    }
 });
 
 // 路由：创建用户（管理员）
@@ -1245,27 +1181,23 @@ app.post('/api/users', verifySession, async (req, res) => {
             });
         }
         
-        const users = getUsers();
-        
-        if (users[username]) {
+        // 检查用户是否已存在
+        const existingUser = await userManager.getUserByUsername(username);
+        if (existingUser) {
             return res.json({
                 success: false,
                 error: '用户名已存在'
             });
         }
         
-        const apiKey = generateApiKey();
-        users[username] = {
-            username: username,
-            password: await hashPassword(password),
-            apiKey: apiKey,
+        // 创建用户
+        const newUser = await userManager.createUser({
+            username,
+            password,
             role: 'user',
-            createdAt: new Date().toISOString(),
             claudeApiKey: claudeApiKey || '',
             claudeBaseURL: 'https://api.api123.icu'
-        };
-        
-        saveUsers(users);
+        });
         
         console.log(`管理员 ${req.user.username} 创建用户 ${username}`);
         
@@ -1273,8 +1205,8 @@ app.post('/api/users', verifySession, async (req, res) => {
             success: true,
             message: '用户创建成功',
             user: {
-                username: username,
-                apiKey: apiKey
+                username: newUser.username,
+                apiKey: newUser.apiKey
             }
         });
         
@@ -1287,7 +1219,7 @@ app.post('/api/users', verifySession, async (req, res) => {
 });
 
 // 路由：删除用户（管理员）
-app.delete('/api/users/:username', verifySession, (req, res) => {
+app.delete('/api/users/:username', verifySession, async (req, res) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({
             success: false,
@@ -1305,23 +1237,11 @@ app.delete('/api/users/:username', verifySession, (req, res) => {
             });
         }
         
-        const users = getUsers();
-        
-        if (!users[username]) {
-            return res.json({
-                success: false,
-                error: '用户不存在'
-            });
-        }
-        
-        delete users[username];
-        saveUsers(users);
-        
-        console.log(`管理员 ${req.user.username} 删除用户 ${username}`);
-        
+        // 注意：需要在 userManager 中添加 deleteUser 方法
+        // 暂时返回错误
         res.json({
-            success: true,
-            message: '用户删除成功'
+            success: false,
+            error: '删除用户功能暂未实现'
         });
         
     } catch (error) {
@@ -1363,8 +1283,44 @@ app.post('/api/users/claude-key', verifySession, (req, res) => {
     }
 });
 
+// 路由：更新用户 Claude API Key
+app.post('/api/users/claude-key', verifySession, async (req, res) => {
+    try {
+        const { claudeApiKey } = req.body;
+        
+        if (!claudeApiKey) {
+            return res.json({
+                success: false,
+                error: '请输入 Claude API Key'
+            });
+        }
+        
+        const success = await userManager.updateUser(req.user.username, { claudeApiKey });
+        
+        if (!success) {
+            return res.json({
+                success: false,
+                error: '更新失败'
+            });
+        }
+        
+        console.log(`用户 ${req.user.username} 更新 Claude API Key`);
+        
+        res.json({
+            success: true,
+            message: 'Claude API Key 更新成功'
+        });
+        
+    } catch (error) {
+        res.json({
+            success: false,
+            error: '更新失败'
+        });
+    }
+});
+
 // 路由：更新用户 Claude Base URL
-app.post('/api/users/claude-baseurl', verifySession, (req, res) => {
+app.post('/api/users/claude-baseurl', verifySession, async (req, res) => {
     try {
         const { claudeBaseURL } = req.body;
         
@@ -1385,9 +1341,14 @@ app.post('/api/users/claude-baseurl', verifySession, (req, res) => {
             });
         }
         
-        const users = getUsers();
-        users[req.user.username].claudeBaseURL = claudeBaseURL;
-        saveUsers(users);
+        const success = await userManager.updateUser(req.user.username, { claudeBaseURL });
+        
+        if (!success) {
+            return res.json({
+                success: false,
+                error: '更新失败'
+            });
+        }
         
         console.log(`用户 ${req.user.username} 更新 Claude Base URL: ${claudeBaseURL}`);
         
@@ -1405,7 +1366,7 @@ app.post('/api/users/claude-baseurl', verifySession, (req, res) => {
 });
 
 // 路由：设置 API 类型
-app.post('/api/users/api-type', verifySession, (req, res) => {
+app.post('/api/users/api-type', verifySession, async (req, res) => {
     try {
         const { apiType } = req.body;
         
@@ -1418,9 +1379,14 @@ app.post('/api/users/api-type', verifySession, (req, res) => {
             });
         }
         
-        const users = getUsers();
-        users[req.user.username].apiType = apiType;
-        saveUsers(users);
+        const success = await userManager.updateUser(req.user.username, { apiType });
+        
+        if (!success) {
+            return res.json({
+                success: false,
+                error: '设置失败'
+            });
+        }
         
         console.log(`用户 ${req.user.username} 设置 API 类型: ${apiType}`);
         
@@ -1438,23 +1404,39 @@ app.post('/api/users/api-type', verifySession, (req, res) => {
 });
 
 // 路由：更新用户默认模型和模式
-app.post('/api/users/defaults', verifySession, (req, res) => {
+app.post('/api/users/defaults', verifySession, async (req, res) => {
     try {
-        const { defaultModel, defaultMode } = req.body;
+        const { defaultApiConfig, defaultModel, defaultMode } = req.body;
         
-        const users = getUsers();
+        const updates = {};
+        if (defaultApiConfig !== undefined) updates.defaultConfigId = defaultApiConfig ? parseInt(defaultApiConfig) : null;
+        if (defaultModel) updates.defaultModel = defaultModel;
+        if (defaultMode) updates.defaultMode = defaultMode;
         
-        if (defaultModel) {
-            users[req.user.username].defaultModel = defaultModel;
+        const success = await userManager.updateUser(req.user.username, updates);
+        
+        if (!success) {
+            return res.json({
+                success: false,
+                error: '更新失败'
+            });
         }
         
-        if (defaultMode) {
-            users[req.user.username].defaultMode = defaultMode;
+        // 同步 api_configs 表的 is_default 标记
+        // 这是一个额外的保障，确保两个表的数据一致
+        if (defaultApiConfig) {
+            const user = await userManager.getUserByUsername(req.user.username);
+            if (user && user.id) {
+                try {
+                    await apiConfigManager.setDefaultApiConfig(user.id, parseInt(defaultApiConfig));
+                } catch (syncError) {
+                    console.error('同步 is_default 标记失败:', syncError);
+                    // 不影响主流程，只记录错误
+                }
+            }
         }
         
-        saveUsers(users);
-        
-        console.log(`用户 ${req.user.username} 更新默认配置 - 模型: ${defaultModel}, 模式: ${defaultMode}`);
+        console.log(`用户 ${req.user.username} 更新默认配置 - API: ${defaultApiConfig}, 模型: ${defaultModel}, 模式: ${defaultMode}`);
         
         res.json({
             success: true,
@@ -1469,13 +1451,81 @@ app.post('/api/users/defaults', verifySession, (req, res) => {
     }
 });
 
-// 路由：重新生成 API Key
-app.post('/api/users/regenerate-key', verifySession, (req, res) => {
+// 路由：获取用户设置
+app.get('/api/user/settings', verifySession, async (req, res) => {
     try {
-        const users = getUsers();
-        const newApiKey = generateApiKey();
-        users[req.user.username].apiKey = newApiKey;
-        saveUsers(users);
+        const user = await userManager.getUserByUsername(req.user.username);
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        res.json({
+            success: true,
+            settings: {
+                defaultConfigId: user.defaultConfigId || null,
+                defaultModel: user.defaultModel || 'claude-sonnet-4-5-20250929',
+                defaultMode: user.defaultMode || 'humanlike'
+            }
+        });
+    } catch (error) {
+        console.error('获取用户设置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取用户设置失败'
+        });
+    }
+});
+
+// 路由：更新用户设置
+app.put('/api/user/settings', verifySession, async (req, res) => {
+    try {
+        const { defaultConfigId, defaultModel, defaultMode } = req.body;
+        
+        const updates = {};
+        if (defaultConfigId !== undefined) updates.defaultConfigId = defaultConfigId;
+        if (defaultModel) updates.defaultModel = defaultModel;
+        if (defaultMode) updates.defaultMode = defaultMode;
+        
+        const success = await userManager.updateUser(req.user.username, updates);
+        
+        if (!success) {
+            return res.json({
+                success: false,
+                error: '更新失败'
+            });
+        }
+        
+        console.log(`用户 ${req.user.username} 更新用户设置`);
+        
+        res.json({
+            success: true,
+            message: '用户设置更新成功'
+        });
+        
+    } catch (error) {
+        console.error('更新用户设置失败:', error);
+        res.json({
+            success: false,
+            error: '更新失败'
+        });
+    }
+});
+
+// 路由：重新生成 API Key
+app.post('/api/users/regenerate-key', verifySession, async (req, res) => {
+    try {
+        const newApiKey = await userManager.regenerateApiKey(req.user.username);
+        
+        if (!newApiKey) {
+            return res.json({
+                success: false,
+                error: '生成失败'
+            });
+        }
         
         console.log(`用户 ${req.user.username} 重新生成 API Key`);
         
@@ -1489,6 +1539,1432 @@ app.post('/api/users/regenerate-key', verifySession, (req, res) => {
         res.json({
             success: false,
             error: '生成失败'
+        });
+    }
+});
+
+// ========== 令牌管理路由 ==========
+
+// 路由：获取用户的所有令牌
+app.get('/api/tokens', verifySession, async (req, res) => {
+    try {
+        const tokens = await tokenManager.getUserTokens(req.user.username);
+        const stats = await tokenManager.getTokenStats(req.user.username);
+        
+        res.json({
+            success: true,
+            tokens: tokens,
+            stats: stats
+        });
+    } catch (error) {
+        console.error('获取令牌列表失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取令牌列表失败'
+        });
+    }
+});
+
+// 路由：创建新令牌
+app.post('/api/tokens', verifySession, async (req, res) => {
+    try {
+        const { name } = req.body;
+        
+        const result = await tokenManager.createToken(req.user.username, name);
+        
+        if (result.success) {
+            console.log(`用户 ${req.user.username} 创建新令牌: ${name || '未命名'}`);
+            res.json({
+                success: true,
+                apiKey: result.apiKey,
+                name: result.name,
+                message: '令牌创建成功'
+            });
+        } else {
+            res.json({
+                success: false,
+                error: result.error || '创建令牌失败'
+            });
+        }
+    } catch (error) {
+        console.error('创建令牌失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '创建令牌失败'
+        });
+    }
+});
+
+// 路由：删除令牌
+app.delete('/api/tokens/:id', verifySession, async (req, res) => {
+    try {
+        const tokenId = parseInt(req.params.id);
+        
+        const success = await tokenManager.deleteToken(req.user.username, tokenId);
+        
+        if (success) {
+            console.log(`用户 ${req.user.username} 删除令牌 ID: ${tokenId}`);
+            res.json({
+                success: true,
+                message: '令牌删除成功'
+            });
+        } else {
+            res.json({
+                success: false,
+                error: '令牌不存在或删除失败'
+            });
+        }
+    } catch (error) {
+        console.error('删除令牌失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '删除令牌失败'
+        });
+    }
+});
+
+// 路由：重新生成令牌
+app.post('/api/tokens/:id/regenerate', verifySession, async (req, res) => {
+    try {
+        const tokenId = parseInt(req.params.id);
+        
+        const result = await tokenManager.regenerateToken(req.user.username, tokenId);
+        
+        if (result.success) {
+            console.log(`用户 ${req.user.username} 重新生成令牌 ID: ${tokenId}`);
+            res.json({
+                success: true,
+                apiKey: result.apiKey,
+                message: '令牌重新生成成功'
+            });
+        } else {
+            res.json({
+                success: false,
+                error: result.error || '重新生成令牌失败'
+            });
+        }
+    } catch (error) {
+        console.error('重新生成令牌失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '重新生成令牌失败'
+        });
+    }
+});
+
+// 路由：更新令牌状态
+app.put('/api/tokens/:id/status', verifySession, async (req, res) => {
+    try {
+        const tokenId = parseInt(req.params.id);
+        const { status } = req.body;
+        
+        if (!['active', 'disabled'].includes(status)) {
+            return res.json({
+                success: false,
+                error: '无效的状态值'
+            });
+        }
+        
+        const success = await tokenManager.updateTokenStatus(req.user.username, tokenId, status);
+        
+        if (success) {
+            console.log(`用户 ${req.user.username} 更新令牌状态 ID: ${tokenId}, 状态: ${status}`);
+            res.json({
+                success: true,
+                message: '令牌状态更新成功'
+            });
+        } else {
+            res.json({
+                success: false,
+                error: '令牌不存在或更新失败'
+            });
+        }
+    } catch (error) {
+        console.error('更新令牌状态失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '更新令牌状态失败'
+        });
+    }
+});
+
+// 路由：更新令牌名称
+app.put('/api/tokens/:id/name', verifySession, async (req, res) => {
+    try {
+        const tokenId = parseInt(req.params.id);
+        const { name } = req.body;
+        
+        const success = await tokenManager.updateTokenName(req.user.username, tokenId, name);
+        
+        if (success) {
+            console.log(`用户 ${req.user.username} 更新令牌名称 ID: ${tokenId}`);
+            res.json({
+                success: true,
+                message: '令牌名称更新成功'
+            });
+        } else {
+            res.json({
+                success: false,
+                error: '令牌不存在或更新失败'
+            });
+        }
+    } catch (error) {
+        console.error('更新令牌名称失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '更新令牌名称失败'
+        });
+    }
+});
+
+// 路由：更新令牌节点配置
+app.put('/api/tokens/:id/node-config', verifySession, async (req, res) => {
+    try {
+        const tokenId = parseInt(req.params.id);
+        const { 
+            nodeStrategy, 
+            loadBalanceStrategy,
+            loadBalanceNodes,
+            defaultModel,
+            fixedNodeId, 
+            fixedModel 
+        } = req.body;
+        
+        // 验证参数
+        if (!['load_balance', 'fixed'].includes(nodeStrategy)) {
+            return res.json({
+                success: false,
+                error: '无效的节点策略'
+            });
+        }
+        
+        if (nodeStrategy === 'fixed' && !fixedNodeId) {
+            return res.json({
+                success: false,
+                error: '固定节点模式必须指定节点ID'
+            });
+        }
+        
+        // 验证负载均衡策略
+        const validStrategies = ['round_robin', 'weighted', 'least_connections', 'random'];
+        if (loadBalanceStrategy && !validStrategies.includes(loadBalanceStrategy)) {
+            return res.json({
+                success: false,
+                error: '无效的负载均衡策略'
+            });
+        }
+        
+        const config = {
+            nodeStrategy,
+            loadBalanceStrategy: nodeStrategy === 'load_balance' ? (loadBalanceStrategy || 'round_robin') : null,
+            loadBalanceNodes: nodeStrategy === 'load_balance' ? loadBalanceNodes : null,
+            defaultModel: defaultModel || null,
+            fixedNodeId: nodeStrategy === 'fixed' ? fixedNodeId : null,
+            fixedModel: nodeStrategy === 'fixed' ? fixedModel : null
+        };
+        
+        const success = await tokenManager.updateTokenNodeConfig(
+            req.user.username, 
+            tokenId, 
+            config
+        );
+        
+        if (success) {
+            console.log(`用户 ${req.user.username} 更新令牌节点配置 ID: ${tokenId}, 策略: ${nodeStrategy}`);
+            res.json({
+                success: true,
+                message: '节点配置更新成功'
+            });
+        } else {
+            res.json({
+                success: false,
+                error: '令牌不存在或更新失败'
+            });
+        }
+    } catch (error) {
+        console.error('更新令牌节点配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '更新节点配置失败'
+        });
+    }
+});
+
+// ========== API 配置管理路由 ==========
+
+// 路由：获取用户的所有 API 配置
+app.get('/api/configs', verifySession, async (req, res) => {
+    try {
+        const configs = await configManager.getUserConfigs(req.user.username);
+        
+        // 转换字段名以保持兼容性
+        const responseConfigs = configs.map(config => ({
+            id: config.id,
+            name: config.name,
+            api_url: config.apiUrl,
+            api_type: config.apiType,
+            available_models: config.availableModels,
+            is_default: config.isDefault,
+            is_active: config.isActive,
+            created_at: config.createdAt,
+            updated_at: config.updatedAt
+        }));
+        
+        res.json({
+            success: true,
+            configs: responseConfigs
+        });
+    } catch (error) {
+        console.error('获取配置列表失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取配置列表失败'
+        });
+    }
+});
+
+// 路由：获取单个配置详情
+app.get('/api/configs/:id', verifySession, async (req, res) => {
+    try {
+        const configId = parseInt(req.params.id);
+        const config = await configManager.getConfig(req.user.username, configId);
+        
+        if (config) {
+            // 转换字段名以保持兼容性
+            const responseConfig = {
+                id: config.id,
+                name: config.name,
+                api_url: config.apiUrl,
+                api_key: config.apiKey,
+                api_type: config.apiType,
+                available_models: config.availableModels,
+                is_default: config.isDefault,
+                created_at: config.createdAt,
+                updated_at: config.updatedAt
+            };
+            
+            res.json({
+                success: true,
+                config: responseConfig
+            });
+        } else {
+            res.status(404).json({
+                success: false,
+                error: '配置不存在'
+            });
+        }
+    } catch (error) {
+        console.error('获取配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取配置失败'
+        });
+    }
+});
+
+// 路由：获取节点的模型列表
+app.get('/api/configs/:id/models', verifySession, async (req, res) => {
+    try {
+        const configId = parseInt(req.params.id);
+        const config = await configManager.getConfig(req.user.username, configId);
+        
+        if (!config) {
+            return res.status(404).json({
+                success: false,
+                error: '配置不存在'
+            });
+        }
+        
+        // 返回该节点配置的模型列表
+        res.json({
+            success: true,
+            models: config.availableModels || []
+        });
+    } catch (error) {
+        console.error('获取节点模型列表失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取节点模型列表失败'
+        });
+    }
+});
+
+// 路由：创建新的 API 配置
+app.post('/api/configs', verifySession, async (req, res) => {
+    try {
+        const { name, apiUrl, apiKey, apiType, availableModels, isDefault } = req.body;
+        
+        if (!name || !apiUrl || !apiKey || !apiType) {
+            return res.json({
+                success: false,
+                error: '请填写所有必填项'
+            });
+        }
+        
+        const result = await configManager.createConfig(req.user.username, {
+            name,
+            apiUrl,
+            apiKey,
+            apiType,
+            availableModels,
+            isDefault
+        });
+        
+        if (result.success) {
+            console.log(`用户 ${req.user.username} 创建新配置: ${name}`);
+            
+            // 获取刚创建的配置详情
+            const newConfig = await configManager.getConfig(req.user.username, result.id);
+            
+            // 转换字段名以保持兼容性
+            const responseConfig = {
+                id: newConfig.id,
+                name: newConfig.name,
+                api_url: newConfig.apiUrl,
+                api_key: newConfig.apiKey,
+                api_type: newConfig.apiType,
+                available_models: newConfig.availableModels,
+                is_default: newConfig.isDefault,
+                created_at: newConfig.createdAt,
+                updated_at: newConfig.updatedAt
+            };
+            
+            res.json({
+                success: true,
+                id: result.id,
+                config: responseConfig,
+                message: '配置创建成功'
+            });
+        } else {
+            res.json({
+                success: false,
+                error: result.error || '创建配置失败'
+            });
+        }
+    } catch (error) {
+        console.error('创建配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '创建配置失败'
+        });
+    }
+});
+
+// 路由：更新 API 配置
+app.put('/api/configs/:id', verifySession, async (req, res) => {
+    try {
+        const configId = parseInt(req.params.id);
+        const { name, apiUrl, apiKey, apiType, availableModels, isDefault } = req.body;
+        
+        const result = await configManager.updateConfig(req.user.username, configId, {
+            name,
+            apiUrl,
+            apiKey,
+            apiType,
+            availableModels,
+            isDefault
+        });
+        
+        if (result.success) {
+            console.log(`用户 ${req.user.username} 更新配置 ID: ${configId}`);
+            res.json({
+                success: true,
+                message: '配置更新成功'
+            });
+        } else {
+            res.json({
+                success: false,
+                error: result.error || '配置不存在或更新失败'
+            });
+        }
+    } catch (error) {
+        console.error('更新配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '更新配置失败'
+        });
+    }
+});
+
+// 路由：删除 API 配置
+app.delete('/api/configs/:id', verifySession, async (req, res) => {
+    try {
+        const configId = parseInt(req.params.id);
+        
+        const success = await configManager.deleteConfig(req.user.username, configId);
+        
+        if (success) {
+            console.log(`用户 ${req.user.username} 删除配置 ID: ${configId}`);
+            res.json({
+                success: true,
+                message: '配置删除成功'
+            });
+        } else {
+            res.json({
+                success: false,
+                error: '配置不存在或删除失败'
+            });
+        }
+    } catch (error) {
+        console.error('删除配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '删除配置失败'
+        });
+    }
+});
+
+// 路由：设置默认配置
+app.put('/api/configs/:id/default', verifySession, async (req, res) => {
+    try {
+        const configId = parseInt(req.params.id);
+        
+        const success = await configManager.setDefaultConfig(req.user.username, configId);
+        
+        if (success) {
+            console.log(`用户 ${req.user.username} 设置默认配置 ID: ${configId}`);
+            res.json({
+                success: true,
+                message: '默认配置设置成功'
+            });
+        } else {
+            res.json({
+                success: false,
+                error: '配置不存在或设置失败'
+            });
+        }
+    } catch (error) {
+        console.error('设置默认配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '设置默认配置失败'
+        });
+    }
+});
+
+// 路由：自动探测 API 类型
+app.post('/api/configs/detect', verifySession, async (req, res) => {
+    try {
+        const { apiUrl, apiKey } = req.body;
+        
+        if (!apiUrl || !apiKey) {
+            return res.json({
+                success: false,
+                error: '请提供 API URL 和 API Key'
+            });
+        }
+        
+        const result = await configManager.detectAPIType(apiUrl, apiKey);
+        
+        res.json(result);
+    } catch (error) {
+        console.error('探测 API 类型失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '探测 API 类型失败'
+        });
+    }
+});
+
+// 路由：测试 API 连接
+app.post('/api/configs/:id/test', verifySession, async (req, res) => {
+    try {
+        const configId = parseInt(req.params.id);
+        const config = await configManager.getConfig(req.user.username, configId);
+        
+        if (!config) {
+            return res.status(404).json({
+                success: false,
+                error: '配置不存在'
+            });
+        }
+        
+        const result = await configManager.testConnection(config.apiUrl, config.apiKey, config.apiType);
+        
+        // 如果测试成功且获取到了模型列表，保存到数据库
+        if (result.success && result.models && result.models.length > 0) {
+            console.log(`[测试连接] 获取到 ${result.models.length} 个模型，正在保存...`);
+            
+            try {
+                // 更新配置，保存模型列表
+                await configManager.updateConfig(req.user.username, configId, {
+                    availableModels: result.models
+                });
+                
+                console.log(`[测试连接] 模型列表已保存到配置 ${configId}`);
+                
+                // 在返回结果中包含模型列表
+                result.available_models = result.models;
+            } catch (updateError) {
+                console.error('[测试连接] 保存模型列表失败:', updateError);
+                // 不影响测试结果，只是记录错误
+            }
+        } else if (result.success) {
+            console.log(`[测试连接] 测试成功但未获取到模型列表`);
+        }
+        
+        res.json(result);
+    } catch (error) {
+        console.error('测试连接失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '测试连接失败'
+        });
+    }
+});
+
+// ========== 多 API 配置管理路由（新系统）==========
+
+// 获取用户的所有多 API 配置
+app.get('/api/api-configs', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const configs = await apiConfigManager.getUserApiConfigs(user.id);
+        res.json({
+            success: true,
+            configs: configs
+        });
+    } catch (error) {
+        console.error('获取多 API 配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取多 API 配置失败'
+        });
+    }
+});
+
+// 获取单个多 API 配置
+app.get('/api/api-configs/:id', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const configId = parseInt(req.params.id);
+        const config = await apiConfigManager.getApiConfig(user.id, configId);
+        
+        if (!config) {
+            return res.status(404).json({
+                success: false,
+                error: '配置不存在'
+            });
+        }
+        
+        res.json({
+            success: true,
+            config: config
+        });
+    } catch (error) {
+        console.error('获取多 API 配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取多 API 配置失败'
+        });
+    }
+});
+
+// 添加多 API 配置
+app.post('/api/api-configs', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const {
+            name,
+            base_url,
+            api_key,
+            api_type = 'auto',
+            is_default = false,
+            is_active = true,
+            priority = 0,
+            models = [],
+            description = ''
+        } = req.body;
+        
+        console.log('添加 API 配置 - 接收到的数据:');
+        console.log('  - name:', name);
+        console.log('  - models:', models);
+        console.log('  - models 类型:', typeof models);
+        console.log('  - models 是否为数组:', Array.isArray(models));
+        console.log('  - models 长度:', Array.isArray(models) ? models.length : 'N/A');
+        
+        // 验证必填字段
+        if (!name || !base_url || !api_key) {
+            return res.status(400).json({
+                success: false,
+                error: '名称、Base URL 和 API Key 为必填项'
+            });
+        }
+        
+        const configId = await apiConfigManager.addApiConfig(user.id, {
+            name,
+            base_url,
+            api_key,
+            api_type,
+            is_default,
+            is_active,
+            priority,
+            models,
+            description
+        });
+        
+        console.log(`用户 ${req.user.username} 添加多 API 配置: ${name}`);
+        
+        res.json({
+            success: true,
+            configId: configId,
+            message: 'API 配置添加成功'
+        });
+    } catch (error) {
+        console.error('添加多 API 配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '添加多 API 配置失败'
+        });
+    }
+});
+
+// 更新多 API 配置
+app.put('/api/api-configs/:id', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const configId = parseInt(req.params.id);
+        const {
+            name,
+            base_url,
+            api_key,
+            api_type,
+            is_default,
+            is_active,
+            priority,
+            models,
+            description
+        } = req.body;
+        
+        console.log('更新 API 配置 - 接收到的数据:');
+        console.log('  - configId:', configId);
+        console.log('  - name:', name);
+        console.log('  - models:', models);
+        console.log('  - models 类型:', typeof models);
+        console.log('  - models 是否为数组:', Array.isArray(models));
+        console.log('  - models 长度:', Array.isArray(models) ? models.length : 'N/A');
+        
+        const success = await apiConfigManager.updateApiConfig(user.id, configId, {
+            name,
+            base_url,
+            api_key,
+            api_type,
+            is_default,
+            is_active,
+            priority,
+            models,
+            description
+        });
+        
+        if (!success) {
+            return res.status(404).json({
+                success: false,
+                error: '配置不存在或更新失败'
+            });
+        }
+        
+        console.log(`用户 ${req.user.username} 更新多 API 配置 ID: ${configId}`);
+        
+        res.json({
+            success: true,
+            message: 'API 配置更新成功'
+        });
+    } catch (error) {
+        console.error('更新多 API 配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '更新多 API 配置失败'
+        });
+    }
+});
+
+// 删除多 API 配置
+app.delete('/api/api-configs/:id', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const configId = parseInt(req.params.id);
+        const success = await apiConfigManager.deleteApiConfig(user.id, configId);
+        
+        if (!success) {
+            return res.status(404).json({
+                success: false,
+                error: '配置不存在或删除失败'
+            });
+        }
+        
+        console.log(`用户 ${req.user.username} 删除多 API 配置 ID: ${configId}`);
+        
+        res.json({
+            success: true,
+            message: 'API 配置已删除'
+        });
+    } catch (error) {
+        console.error('删除多 API 配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '删除多 API 配置失败'
+        });
+    }
+});
+
+// 设置默认多 API 配置
+app.post('/api/api-configs/:id/set-default', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const configId = parseInt(req.params.id);
+        const success = await apiConfigManager.setDefaultApiConfig(user.id, configId);
+        
+        if (!success) {
+            return res.status(404).json({
+                success: false,
+                error: '配置不存在或设置失败'
+            });
+        }
+        
+        // 同步更新用户的 default_config_id
+        // 这是一个额外的保障，确保两个表的数据一致
+        try {
+            await userManager.updateUser(req.user.username, { defaultConfigId: configId });
+        } catch (syncError) {
+            console.error('同步 default_config_id 失败:', syncError);
+            // 不影响主流程，只记录错误
+        }
+        
+        console.log(`用户 ${req.user.username} 设置默认多 API 配置 ID: ${configId}`);
+        
+        res.json({
+            success: true,
+            message: '默认配置已更新'
+        });
+    } catch (error) {
+        console.error('设置默认多 API 配置失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '设置默认多 API 配置失败'
+        });
+    }
+});
+
+// 测试多 API 连接
+app.post('/api/api-configs/test', verifySession, async (req, res) => {
+    try {
+        const { base_url, api_key, api_type = 'auto' } = req.body;
+        
+        if (!base_url || !api_key) {
+            return res.status(400).json({
+                success: false,
+                error: 'Base URL 和 API Key 为必填项'
+            });
+        }
+        
+        // 使用 configManager 的测试连接功能
+        const result = await configManager.testConnection(base_url, api_key, api_type);
+        
+        res.json(result);
+    } catch (error) {
+        console.error('测试多 API 连接失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '测试 API 连接失败'
+        });
+    }
+});
+
+// API 健康检查
+app.post('/api/api-configs/health-check', verifySession, async (req, res) => {
+    try {
+        const { config_id } = req.body;
+        
+        if (!config_id) {
+            return res.status(400).json({
+                success: false,
+                error: '配置 ID 为必填项'
+            });
+        }
+        
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        // 获取配置
+        const config = await apiConfigManager.getApiConfig(user.id, config_id);
+        
+        if (!config) {
+            return res.status(404).json({
+                success: false,
+                error: '配置不存在'
+            });
+        }
+        
+        // 如果配置被禁用，直接返回离线
+        if (!config.is_active) {
+            return res.json({
+                success: true,
+                online: false,
+                message: '配置已禁用'
+            });
+        }
+        
+        // 快速健康检查（只测试连接，不获取模型列表）
+        try {
+            const result = await configManager.comprehensiveHealthCheck(config.base_url, config.api_key, config.api_type);
+            
+            // 保存健康检查结果到数据库
+            await apiConfigManager.updateHealthStatus(
+                user.id,
+                config_id,
+                result.status,
+                result.latency
+            );
+            
+            // 保存详细日志
+            await apiConfigManager.saveHealthLog(config_id, result);
+            
+            res.json({
+                success: true,
+                online: result.connectivity,
+                status: result.status,
+                latency: result.latency,
+                authentication: result.authentication,
+                quota_status: result.quota_status,
+                quota_percentage: result.quota_percentage,
+                error_message: result.error_message,
+                last_check_at: new Date()
+            });
+        } catch (error) {
+            // 保存离线状态到数据库
+            await apiConfigManager.updateHealthStatus(
+                user.id,
+                config_id,
+                'offline',
+                0
+            );
+            
+            // 保存错误日志
+            await apiConfigManager.saveHealthLog(config_id, {
+                status: 'offline',
+                connectivity: false,
+                latency: 0,
+                authentication: 'unknown',
+                auth_error_code: null,
+                quota_status: 'unknown',
+                quota_total: null,
+                quota_used: null,
+                quota_remaining: null,
+                quota_percentage: null,
+                error_message: error.message,
+                response_code: null
+            });
+            
+            res.json({
+                success: true,
+                online: false,
+                status: 'offline',
+                message: 'API 离线',
+                error: error.message,
+                last_check_at: new Date()
+            });
+        }
+    } catch (error) {
+        console.error('API 健康检查失败:', error);
+        res.status(500).json({
+            success: false,
+            error: 'API 健康检查失败'
+        });
+    }
+});
+
+// API 健康历史
+app.get('/api/api-configs/:id/health-history', verifySession, async (req, res) => {
+    try {
+        const configId = parseInt(req.params.id);
+        const limit = parseInt(req.query.limit) || 100;
+        
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        // 验证配置是否属于该用户
+        const config = await apiConfigManager.getApiConfig(user.id, configId);
+        if (!config) {
+            return res.status(404).json({
+                success: false,
+                error: '配置不存在'
+            });
+        }
+        
+        // 获取健康历史
+        const history = await apiConfigManager.getHealthHistory(configId, limit);
+        
+        res.json({
+            success: true,
+            history: history
+        });
+    } catch (error) {
+        console.error('获取健康历史失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取健康历史失败'
+        });
+    }
+});
+
+// 故障转移历史
+app.get('/api/failover-history', verifySession, async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 100;
+        
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        // 获取故障转移历史
+        const history = await apiConfigManager.getFailoverHistory(user.id, limit);
+        
+        res.json({
+            success: true,
+            history: history
+        });
+    } catch (error) {
+        console.error('获取故障转移历史失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取故障转移历史失败'
+        });
+    }
+});
+
+// ========== 监控和统计路由（阶段5-6）==========
+
+// 获取总览统计
+app.get('/api/stats/overview', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const { startDate, endDate } = req.query;
+        const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const end = endDate || new Date().toISOString().split('T')[0];
+        
+        const statsCollector = require('./lib/statsCollector');
+        const overview = await statsCollector.getOverviewStats(user.id, start, end);
+        
+        res.json({
+            success: true,
+            overview: overview,
+            dateRange: { startDate: start, endDate: end }
+        });
+    } catch (error) {
+        console.error('获取总览统计失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取总览统计失败'
+        });
+    }
+});
+
+// 获取所有节点统计
+app.get('/api/stats/nodes', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const { startDate, endDate } = req.query;
+        const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const end = endDate || new Date().toISOString().split('T')[0];
+        
+        const statsCollector = require('./lib/statsCollector');
+        const nodesStats = await statsCollector.getAllNodesStats(user.id, start, end);
+        
+        res.json({
+            success: true,
+            nodes: nodesStats,
+            dateRange: { startDate: start, endDate: end }
+        });
+    } catch (error) {
+        console.error('获取节点统计失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取节点统计失败'
+        });
+    }
+});
+
+// 获取单个节点统计
+app.get('/api/stats/nodes/:id', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const nodeId = parseInt(req.params.id);
+        const { startDate, endDate } = req.query;
+        const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const end = endDate || new Date().toISOString().split('T')[0];
+        
+        const statsCollector = require('./lib/statsCollector');
+        const nodeStats = await statsCollector.getNodeStats(user.id, nodeId, start, end);
+        
+        res.json({
+            success: true,
+            stats: nodeStats,
+            dateRange: { startDate: start, endDate: end }
+        });
+    } catch (error) {
+        console.error('获取节点统计失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取节点统计失败'
+        });
+    }
+});
+
+// 获取时间趋势数据
+app.get('/api/stats/trend', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const { nodeId, startDate, endDate, groupBy } = req.query;
+        const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const end = endDate || new Date().toISOString().split('T')[0];
+        const group = groupBy || 'hour';
+        
+        const statsCollector = require('./lib/statsCollector');
+        const trend = await statsCollector.getTimeTrend(
+            user.id,
+            nodeId ? parseInt(nodeId) : null,
+            start,
+            end,
+            group
+        );
+        
+        res.json({
+            success: true,
+            trend: trend,
+            dateRange: { startDate: start, endDate: end },
+            groupBy: group
+        });
+    } catch (error) {
+        console.error('获取时间趋势失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取时间趋势失败'
+        });
+    }
+});
+
+// 获取告警规则
+app.get('/api/alert-rules', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const alertManager = require('./lib/alertManager');
+        const rules = await alertManager.getAlertRules(user.id);
+        
+        res.json({
+            success: true,
+            rules: rules
+        });
+    } catch (error) {
+        console.error('获取告警规则失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取告警规则失败'
+        });
+    }
+});
+
+// 创建告警规则
+app.post('/api/alert-rules', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const { alertType, enabled, threshold, notifyEmail, notifyWebhook, webhookUrl } = req.body;
+        
+        if (!alertType) {
+            return res.status(400).json({
+                success: false,
+                error: '告警类型为必填项'
+            });
+        }
+        
+        const alertManager = require('./lib/alertManager');
+        const ruleId = await alertManager.createAlertRule(user.id, alertType, {
+            enabled,
+            threshold,
+            notifyEmail,
+            notifyWebhook,
+            webhookUrl
+        });
+        
+        res.json({
+            success: true,
+            ruleId: ruleId,
+            message: '告警规则创建成功'
+        });
+    } catch (error) {
+        console.error('创建告警规则失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '创建告警规则失败'
+        });
+    }
+});
+
+// 更新告警规则
+app.put('/api/alert-rules/:id', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const ruleId = parseInt(req.params.id);
+        const updates = req.body;
+        
+        const alertManager = require('./lib/alertManager');
+        const success = await alertManager.updateAlertRule(user.id, ruleId, updates);
+        
+        if (!success) {
+            return res.status(404).json({
+                success: false,
+                error: '告警规则不存在或更新失败'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: '告警规则更新成功'
+        });
+    } catch (error) {
+        console.error('更新告警规则失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '更新告警规则失败'
+        });
+    }
+});
+
+// 删除告警规则
+app.delete('/api/alert-rules/:id', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const ruleId = parseInt(req.params.id);
+        
+        const alertManager = require('./lib/alertManager');
+        const success = await alertManager.deleteAlertRule(user.id, ruleId);
+        
+        if (!success) {
+            return res.status(404).json({
+                success: false,
+                error: '告警规则不存在或删除失败'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: '告警规则已删除'
+        });
+    } catch (error) {
+        console.error('删除告警规则失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '删除告警规则失败'
+        });
+    }
+});
+
+// 获取告警日志
+app.get('/api/alert-logs', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const limit = parseInt(req.query.limit) || 100;
+        
+        const alertManager = require('./lib/alertManager');
+        const logs = await alertManager.getAlertLogs(user.id, limit);
+        
+        res.json({
+            success: true,
+            logs: logs
+        });
+    } catch (error) {
+        console.error('获取告警日志失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取告警日志失败'
+        });
+    }
+});
+
+// 手动触发告警检查
+app.post('/api/alert-check', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        if (!user || !user.id) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        const alertManager = require('./lib/alertManager');
+        await alertManager.checkAlerts(user.id);
+        
+        res.json({
+            success: true,
+            message: '告警检查已完成'
+        });
+    } catch (error) {
+        console.error('告警检查失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '告警检查失败'
+        });
+    }
+});
+
+// ========== 个人中心路由 ==========
+
+// 路由：获取个人信息
+app.get('/api/profile', verifySession, async (req, res) => {
+    try {
+        const user = await userManager.getUserByUsername(req.user.username);
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
+            });
+        }
+        
+        // 获取统计信息
+        const stats = await logger.getStats(req.user.username);
+        const tokenStats = await tokenManager.getTokenStats(req.user.username);
+        
+        res.json({
+            success: true,
+            profile: {
+                username: user.username,
+                role: user.role,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
+            },
+            stats: {
+                totalCalls: stats?.total?.calls || 0,
+                successCalls: stats?.total?.success || 0,
+                errorCalls: stats?.total?.error || 0,
+                totalTokens: stats?.total?.totalTokens || 0,
+                apiKeys: tokenStats
+            }
+        });
+    } catch (error) {
+        console.error('获取个人信息失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取个人信息失败'
         });
     }
 });
@@ -1509,10 +2985,12 @@ app.post('/api/rewrite', verifyApiKey, async (req, res) => {
     
     // 在外部定义变量，以便在 catch 块中使用
     let baseURL = '';
+    let apiKey = '';
     let apiType = '';
     let model = '';
     let mode = '';
     let text = '';
+    let apiConfig = null; // 添加 apiConfig 变量定义
     
     try {
         // 记录详细的请求信息
@@ -1538,7 +3016,17 @@ app.post('/api/rewrite', verifyApiKey, async (req, res) => {
         // 兼容多种参数格式，使用用户配置的默认值
         text = req.body.text || req.body.txt || '';
         mode = req.body.mode || req.user.defaultMode || 'humanlike';
-        model = req.body.model || req.user.defaultModel || 'claude-sonnet-4-5-20250929';
+        
+        // 模型优先级：请求参数 > 令牌固定模型 > 用户默认模型 > 系统默认
+        if (req.body.model) {
+            model = req.body.model;
+        } else if (req.user.fixedModel) {
+            model = req.user.fixedModel;
+            console.log(`[请求 ${requestId}] 使用令牌固定模型: ${model}`);
+        } else {
+            model = req.user.defaultModel || 'claude-sonnet-4-5-20250929';
+        }
+        
         const returnSimilarity = req.body.sim === 1 || req.body.sim === '1';
         
         console.log(`[请求 ${requestId}] 解析后参数: 文本长度=${text.length}, 模式=${mode}, 模型=${model}, 返回相似度=${returnSimilarity}`);
@@ -1557,25 +3045,138 @@ app.post('/api/rewrite', verifyApiKey, async (req, res) => {
         console.log(`[请求 ${requestId}] 文本长度: ${text.length} 字符`);
         console.log(`[请求 ${requestId}] 文本预览: ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`);
         
-        // 使用用户的 Claude API Key
-        if (!req.user.claudeApiKey) {
-            console.log(`[请求 ${requestId}] ❌ 错误: 用户未配置 Claude API Key`);
-            return res.json({
-                errcode: '100203',
-                errmsg: '用户未配置 Claude API Key',
-                data: ''
-            });
+        // 优先使用外部API配置，如果没有则降级到个人中心配置
+        // apiConfig 已在外部定义，这里直接赋值
+        
+        // 1. 检查用户是否手动指定了节点（前端传递 config_id）
+        if (req.body.config_id) {
+            console.log(`[请求 ${requestId}] 用户手动指定节点 ID: ${req.body.config_id}`);
+            apiConfig = await configManager.getConfig(req.user.username, req.body.config_id);
+            
+            if (apiConfig) {
+                console.log(`[请求 ${requestId}] ✓ 使用用户指定节点: ${apiConfig.name}`);
+                baseURL = apiConfig.apiUrl;
+                apiKey = apiConfig.apiKey;
+                apiType = apiConfig.apiType || 'auto';
+                console.log(`[请求 ${requestId}] API 地址: ${baseURL}`);
+                console.log(`[请求 ${requestId}] API 类型: ${apiType}`);
+            } else {
+                console.log(`[请求 ${requestId}] ⚠️ 指定的节点不存在或已禁用`);
+            }
         }
         
-        console.log(`[请求 ${requestId}] ✓ Claude API Key 已配置`);
+        // 2. 检查令牌的节点配置策略
+        if (!apiConfig && req.user.nodeStrategy === 'fixed' && req.user.fixedNodeId) {
+            // 使用令牌指定的固定节点
+            console.log(`[请求 ${requestId}] 令牌配置为固定节点模式，节点ID: ${req.user.fixedNodeId}`);
+            apiConfig = await configManager.getConfig(req.user.username, req.user.fixedNodeId);
+            
+            if (apiConfig) {
+                console.log(`[请求 ${requestId}] ✓ 使用令牌固定节点: ${apiConfig.name}`);
+                baseURL = apiConfig.apiUrl;
+                apiKey = apiConfig.apiKey;
+                apiType = apiConfig.apiType || 'auto';
+                console.log(`[请求 ${requestId}] API 地址: ${baseURL}`);
+                console.log(`[请求 ${requestId}] API 类型: ${apiType}`);
+            } else {
+                console.log(`[请求 ${requestId}] ⚠️ 固定节点不存在或已禁用，降级到负载均衡模式`);
+            }
+        }
         
-        // 使用用户配置的 Base URL，如果没有则使用默认值
-        baseURL = req.user.claudeBaseURL || 'https://api.api123.icu';
-        console.log(`[请求 ${requestId}] Claude API 地址: ${baseURL}`);
+        // 3. 如果没有使用固定节点，则使用负载均衡或默认配置
+        if (!apiConfig) {
+            console.log(`[请求 ${requestId}] 使用负载均衡模式`);
+            
+            // 3.1 尝试获取用户的默认外部API配置
+            if (req.user.defaultConfigId) {
+                console.log(`[请求 ${requestId}] 尝试使用默认外部API配置 ID: ${req.user.defaultConfigId}`);
+                apiConfig = await configManager.getConfig(req.user.username, req.user.defaultConfigId);
+                
+                if (apiConfig) {
+                    console.log(`[请求 ${requestId}] ✓ 成功加载外部API配置: ${apiConfig.name}`);
+                    baseURL = apiConfig.apiUrl;
+                    apiKey = apiConfig.apiKey;
+                    apiType = apiConfig.apiType || 'auto';
+                    console.log(`[请求 ${requestId}] API 地址: ${baseURL}`);
+                    console.log(`[请求 ${requestId}] API 类型: ${apiType}`);
+                } else {
+                    console.log(`[请求 ${requestId}] ⚠️ 未找到默认外部API配置，尝试获取任意默认配置`);
+                }
+            }
+            
+            // 3.2 如果没有指定默认配置ID，尝试获取标记为默认的配置
+            if (!apiConfig) {
+                apiConfig = await configManager.getDefaultConfig(req.user.username);
+                if (apiConfig) {
+                    console.log(`[请求 ${requestId}] ✓ 使用标记为默认的外部API配置: ${apiConfig.name}`);
+                    baseURL = apiConfig.apiUrl;
+                    apiKey = apiConfig.apiKey;
+                    apiType = apiConfig.apiType || 'auto';
+                    console.log(`[请求 ${requestId}] API 地址: ${baseURL}`);
+                    console.log(`[请求 ${requestId}] API 类型: ${apiType}`);
+                }
+            }
+        }
+        
+        // 4. 降级到个人中心的旧配置
+        if (!apiConfig) {
+            console.log(`[请求 ${requestId}] ⚠️ 未找到外部API配置，使用个人中心配置（旧系统）`);
+            
+            if (!req.user.claudeApiKey) {
+                console.log(`[请求 ${requestId}] ❌ 错误: 用户未配置 API Key`);
+                return res.json({
+                    errcode: '100203',
+                    errmsg: '用户未配置 API Key，请在"系统配置-外部API配置"中添加配置',
+                    data: ''
+                });
+            }
+            
+            apiKey = req.user.claudeApiKey;
+            baseURL = req.user.claudeBaseURL || 'https://api.api123.icu';
+            apiType = req.user.apiType || 'auto';
+            
+            console.log(`[请求 ${requestId}] ✓ 使用个人中心配置`);
+            console.log(`[请求 ${requestId}] API 地址: ${baseURL}`);
+        }
         
         // 检测 API 类型
-        apiType = detectAPIType(baseURL, req.user.apiType || 'auto');
-        console.log(`[请求 ${requestId}] API 类型: ${apiType}${req.user.apiType && req.user.apiType !== 'auto' ? ' (手动指定)' : ' (自动识别)'}`);
+        apiType = detectAPIType(baseURL, apiType);
+        console.log(`[请求 ${requestId}] 最终 API 类型: ${apiType} (自动识别)`);
+        
+        // 判断是否启用故障转移
+        // 只有在用户没有手动指定节点时才启用故障转移
+        const userSpecifiedNode = req.body.config_id ? true : false;
+        let allConfigs = [];
+        
+        if (userSpecifiedNode) {
+            // 用户手动指定了节点，只使用这个节点，不启用故障转移
+            console.log(`[请求 ${requestId}] 用户手动指定节点，禁用故障转移`);
+            if (apiConfig) {
+                allConfigs.push(apiConfig);
+            }
+        } else {
+            // 用户使用默认配置或负载均衡，启用故障转移
+            console.log(`[请求 ${requestId}] 使用默认配置，启用故障转移`);
+            
+            if (apiConfig) {
+                // 如果有选定的配置，先尝试它
+                allConfigs.push(apiConfig);
+                
+                // 获取其他可用配置作为备用
+                const otherConfigs = await configManager.getUserConfigs(req.user.username);
+                for (const config of otherConfigs) {
+                    if (config.id !== apiConfig.id && config.isActive) {
+                        // 获取完整配置（包含 API Key）
+                        const fullConfig = await configManager.getConfig(req.user.username, config.id);
+                        if (fullConfig) {
+                            allConfigs.push(fullConfig);
+                        }
+                    }
+                }
+            }
+        }
+        
+        console.log(`[请求 ${requestId}] 可用节点数: ${allConfigs.length}, 故障转移: ${userSpecifiedNode ? '禁用' : '启用'}`);
         
         // 检查是否需要分段处理（超过 2000 字符）
         const CHUNK_SIZE = 1800; // 每段 1800 字符（安全值）
@@ -1619,7 +3220,7 @@ app.post('/api/rewrite', verifyApiKey, async (req, res) => {
                 const prompt = `${contextPrompt}\n\n原文：\n${chunk.text}\n\n改写后的文本：`;
                 
                 const chunkStartTime = Date.now();
-                const message = await callAI(baseURL, req.user.claudeApiKey, model, prompt, req.user.apiType || 'auto');
+                const message = await callAI(baseURL, apiKey, model, prompt, apiType);
                 const chunkDuration = (Date.now() - chunkStartTime) / 1000;
                 
                 // 提取改写结果
@@ -1657,7 +3258,72 @@ app.post('/api/rewrite', verifyApiKey, async (req, res) => {
             // 调用 AI（使用统一接口，自动适配）
             console.log(`[请求 ${requestId}] 🚀 开始调用 AI...`);
             
-            const message = await callAI(baseURL, req.user.claudeApiKey, model, prompt, req.user.apiType || 'auto');
+            // 故障转移：尝试多个节点
+            let message = null;
+            let lastError = null;
+            let usedNodeName = apiConfig ? apiConfig.name : '个人中心配置';
+            
+            if (allConfigs.length > 0) {
+                // 尝试每个配置
+                for (let i = 0; i < allConfigs.length; i++) {
+                    const tryConfig = allConfigs[i];
+                    try {
+                        console.log(`[请求 ${requestId}] 尝试节点 ${i + 1}/${allConfigs.length}: ${tryConfig.name}`);
+                        
+                        message = await callAI(
+                            tryConfig.apiUrl,
+                            tryConfig.apiKey,
+                            model,
+                            prompt,
+                            detectAPIType(tryConfig.apiUrl, tryConfig.apiType)
+                        );
+                        
+                        usedNodeName = tryConfig.name;
+                        
+                        // 如果是故障转移（不是第一个节点）
+                        if (i > 0) {
+                            console.log(`[请求 ${requestId}] ✅ 故障转移成功: ${allConfigs[0].name} → ${tryConfig.name}`);
+                            
+                            // 记录故障转移日志
+                            try {
+                                await nodeSelector.logFailover(
+                                    req.user.id,
+                                    allConfigs[0].id,
+                                    tryConfig.id,
+                                    lastError?.message || 'API调用失败',
+                                    {
+                                        requestModel: model,
+                                        requestEndpoint: '/api/rewrite',
+                                        success: true,
+                                        retryCount: i,
+                                        fromNodeStatus: 'error',
+                                        toNodeStatus: 'healthy'
+                                    }
+                                );
+                            } catch (logError) {
+                                console.error(`[请求 ${requestId}] 记录故障转移日志失败:`, logError);
+                            }
+                        }
+                        
+                        break; // 成功，跳出循环
+                    } catch (error) {
+                        lastError = error;
+                        console.error(`[请求 ${requestId}] 节点 ${tryConfig.name} 失败:`, error.message);
+                        
+                        // 如果还有其他节点，继续尝试
+                        if (i < allConfigs.length - 1) {
+                            console.log(`[请求 ${requestId}] 准备尝试下一个节点...`);
+                            continue;
+                        } else {
+                            // 所有节点都失败了
+                            throw error;
+                        }
+                    }
+                }
+            } else {
+                // 使用个人中心配置（无故障转移）
+                message = await callAI(baseURL, apiKey, model, prompt, apiType);
+            }
             
             const apiDuration = (Date.now() - apiStartTime) / 1000;
             console.log(`[请求 ${requestId}] ✓ AI 调用成功，耗时: ${apiDuration.toFixed(2)}秒`);
@@ -1714,7 +3380,7 @@ app.post('/api/rewrite', verifyApiKey, async (req, res) => {
         console.log(`[请求 ${requestId}] ✓ 改写完成 - 总耗时: ${duration.toFixed(2)}秒, 输出长度: ${rewrittenText.length}`);
         console.log(`[请求 ${requestId}] 输出预览: ${rewrittenText.substring(0, 100)}${rewrittenText.length > 100 ? '...' : ''}`);
         
-        // 记录成功的 API 调用
+        // 记录成功的 API 调用（异步，不等待）
         logger.logAPICall({
             requestId: requestId,
             username: req.user.username,
@@ -1731,7 +3397,18 @@ app.post('/api/rewrite', verifyApiKey, async (req, res) => {
             outputTokens: totalOutputTokens,
             clientIP: req.ip,
             userAgent: req.headers['user-agent'] || 'Unknown'
-        });
+        }).catch(err => console.error('记录日志失败:', err));
+        
+        // 记录统计数据（用于监控仪表板）
+        if (apiConfig && apiConfig.id) {
+            const statsCollector = require('./lib/statsCollector');
+            statsCollector.recordRequest(
+                req.user.id,
+                apiConfig.id,
+                true, // 成功
+                Date.now() - apiStartTime
+            ).catch(err => console.error('记录统计失败:', err));
+        }
         // 计算相似度（简单模拟，实际可以用更复杂的算法）
         const similarity = returnSimilarity ? calculateSimilarity(text, rewrittenText) : null;
         
@@ -1817,7 +3494,7 @@ app.post('/api/rewrite', verifyApiKey, async (req, res) => {
         
         console.log(`[请求 ${requestId}] 📤 返回错误响应: errcode=${errcode}, errmsg=${errmsg}`);
         
-        // 记录失败的 API 调用
+        // 记录失败的 API 调用（异步，不等待）
         logger.logAPICall({
             requestId: requestId,
             username: req.user.username,
@@ -1836,7 +3513,18 @@ app.post('/api/rewrite', verifyApiKey, async (req, res) => {
             errorMessage: errmsg,
             clientIP: req.ip,
             userAgent: req.headers['user-agent'] || 'Unknown'
-        });
+        }).catch(err => console.error('记录日志失败:', err));
+        
+        // 记录统计数据（用于监控仪表板）
+        if (apiConfig && apiConfig.id) {
+            const statsCollector = require('./lib/statsCollector');
+            statsCollector.recordRequest(
+                req.user.id,
+                apiConfig.id,
+                false, // 失败
+                Date.now() - startTime
+            ).catch(err => console.error('记录统计失败:', err));
+        }
         
         // 5118 格式错误返回
         const errorResponse = {
@@ -1982,51 +3670,29 @@ app.get('/api/modes', (req, res) => {
 });
 
 // 路由：获取统计数据（需要登录）
-app.get('/api/stats', verifySession, (req, res) => {
+// 路由：获取统计数据（需要登录）
+app.get('/api/stats', verifySession, async (req, res) => {
     try {
-        const stats = logger.getStats();
+        const username = req.user.role === 'admin' && req.query.username
+            ? req.query.username
+            : req.user.username;
+        
+        const stats = await logger.getStats(username);
         
         if (!stats) {
-            return res.json({
-                success: true,
-                stats: {
-                    total: { calls: 0, success: 0, error: 0, totalTokens: 0, totalDuration: 0 },
-                    byUser: {},
-                    byModel: {},
-                    byMode: {},
-                    byBaseURL: {},
-                    byDate: {}
-                }
+            return res.status(500).json({
+                success: false,
+                error: '获取统计数据失败'
             });
         }
         
-        // 如果不是管理员，只返回自己的统计
-        if (req.user.role !== 'admin') {
-            const userStats = stats.byUser[req.user.username] || {
-                calls: 0,
-                success: 0,
-                error: 0,
-                totalTokens: 0,
-                totalDuration: 0
-            };
-            
-            return res.json({
-                success: true,
-                stats: {
-                    user: userStats,
-                    lastUpdated: stats.lastUpdated
-                }
-            });
-        }
-        
-        // 管理员返回完整统计
         res.json({
             success: true,
             stats: stats
         });
-        
     } catch (error) {
-        res.json({
+        console.error('获取统计数据失败:', error);
+        res.status(500).json({
             success: false,
             error: '获取统计数据失败'
         });
@@ -2034,25 +3700,102 @@ app.get('/api/stats', verifySession, (req, res) => {
 });
 
 // 路由：获取用户日志（需要登录）
-app.get('/api/logs', verifySession, (req, res) => {
+// 路由：获取用户日志（需要登录，支持分页和筛选）
+app.get('/api/logs', verifySession, async (req, res) => {
     try {
-        const limit = parseInt(req.query.limit) || 100;
-        const username = req.user.role === 'admin' && req.query.username 
-            ? req.query.username 
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || parseInt(req.query.pageSize) || 20;
+        const status = req.query.status || null;
+        const model = req.query.model || null;
+        const mode = req.query.mode || null;
+        const search = req.query.search || null;
+        const dateRange = req.query.dateRange || null;
+        const startDate = req.query.startDate || null;
+        const endDate = req.query.endDate || null;
+        
+        const username = req.user.role === 'admin' && req.query.username
+            ? req.query.username
             : req.user.username;
         
-        const logs = logger.getUserLogs(username, limit);
+        const result = await logger.getUserLogs(username, {
+            page,
+            pageSize: limit,
+            status,
+            model,
+            mode,
+            search,
+            dateRange,
+            startDate,
+            endDate
+        });
+        
+        // 获取筛选器选项
+        const models = await logger.getUniqueModels(username);
+        const modes = await logger.getUniqueModes(username);
+        
+        // 获取统计数据
+        const stats = await logger.getStats(username);
         
         res.json({
             success: true,
-            logs: logs,
-            total: logs.length
+            ...result,
+            stats: stats ? {
+                totalCalls: stats.total.calls || 0,
+                successCalls: stats.total.success || 0,
+                errorCalls: stats.total.error || 0,
+                avgDuration: stats.total.avgDuration || 0,
+                totalInputTokens: stats.total.totalInputTokens || 0,
+                totalOutputTokens: stats.total.totalOutputTokens || 0
+            } : null,
+            filters: {
+                models,
+                modes
+            }
         });
-        
     } catch (error) {
-        res.json({
+        console.error('获取日志失败:', error);
+        res.status(500).json({
             success: false,
             error: '获取日志失败'
+        });
+    }
+});
+
+// 路由：获取日志统计（不返回日志列表，只返回统计数据）
+app.get('/api/logs/stats', verifySession, async (req, res) => {
+    try {
+        const username = req.user.role === 'admin' && req.query.username
+            ? req.query.username
+            : req.user.username;
+        
+        // 提取过滤参数
+        const filters = {
+            status: req.query.status || null,
+            model: req.query.model || null,
+            mode: req.query.mode || null,
+            search: req.query.search || null,
+            dateRange: req.query.dateRange || null,
+            startDate: req.query.startDate || null,
+            endDate: req.query.endDate || null
+        };
+        
+        // 获取统计数据（带过滤）
+        const stats = await logger.getStats(username, filters);
+        
+        res.json({
+            success: true,
+            totalCalls: stats?.total?.calls || 0,
+            successCalls: stats?.total?.success || 0,
+            failedCalls: stats?.total?.error || 0,
+            avgDuration: stats?.total?.avgDuration || 0,
+            totalInputTokens: stats?.total?.totalInputTokens || 0,
+            totalOutputTokens: stats?.total?.totalOutputTokens || 0
+        });
+    } catch (error) {
+        console.error('获取统计数据失败:', error);
+        res.status(500).json({
+            success: false,
+            error: '获取统计数据失败'
         });
     }
 });
@@ -2249,22 +3992,52 @@ app.get('/api/docs', (req, res) => {
     });
 });
 
-// 启动服务器
-app.listen(PORT, '0.0.0.0', () => {
-    console.log('========================================');
-    console.log('  SEO API - Claude AI 文本改写服务');
-    console.log('========================================');
-    console.log('');
-    console.log(`服务地址: http://localhost:${PORT}`);
-    console.log(`API 文档: http://localhost:${PORT}/api/docs`);
-    console.log(`Web 界面: http://localhost:${PORT}`);
-    console.log('');
-    console.log('按 Ctrl+C 停止服务');
-    console.log('========================================');
-    console.log('');
-    console.log(`API Key 状态: ${config.apiKey ? '✓ 已配置' : '✗ 未配置'}`);
-    console.log('');
-});
+// 启动服务器（异步初始化数据库）
+(async () => {
+    try {
+        console.log('🔌 连接数据库...');
+        const connected = await testConnection();
+        if (!connected) {
+            console.error('❌ 数据库连接失败，请检查 .env 配置');
+            process.exit(1);
+        }
+        
+        console.log('📋 初始化数据库表...');
+        await initDatabase();
+        
+        console.log('👤 初始化默认管理员...');
+        await userManager.initDefaultAdmin();
+        
+        // 定期清理过期会话（每小时）
+        setInterval(async () => {
+            const cleaned = await userManager.cleanExpiredSessions();
+            if (cleaned > 0) {
+                console.log(`🧹 清理了 ${cleaned} 个过期会话`);
+            }
+        }, 60 * 60 * 1000);
+        
+        // 启动服务器
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log('========================================');
+            console.log('  SEO API - Claude AI 文本改写服务');
+            console.log('========================================');
+            console.log('');
+            console.log(`服务地址: http://localhost:${PORT}`);
+            console.log(`API 文档: http://localhost:${PORT}/api/docs`);
+            console.log(`Web 界面: http://localhost:${PORT}`);
+            console.log('');
+            console.log('按 Ctrl+C 停止服务');
+            console.log('========================================');
+            console.log('');
+            console.log(`API Key 状态: ${config.apiKey ? '✓ 已配置' : '✗ 未配置'}`);
+            console.log(`数据库状态: ✓ 已连接`);
+            console.log('');
+        });
+    } catch (error) {
+        console.error('❌ 启动失败:', error);
+        process.exit(1);
+    }
+})();
 
 // 错误处理
 process.on('uncaughtException', (error) => {

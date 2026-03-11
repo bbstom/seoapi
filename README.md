@@ -4,6 +4,8 @@
 
 > 🚨 **遇到问题？** 查看 [小旋风问题诊断卡.txt](./小旋风问题诊断卡.txt) 快速诊断
 
+> 🚀 **生产环境部署？** 查看 [生产部署-README.md](./生产部署-README.md) 快速部署到生产环境
+
 ## 📋 系统要求
 
 - **Node.js**: 18.0.0 或更高版本
@@ -494,9 +496,38 @@ pkill node
 
 ## 🌐 部署到生产环境
 
+### 📚 完整部署文档
+
+系统已准备好部署到生产环境！我们提供了完整的部署文档和工具：
+
+#### 核心文档
+- **[生产部署-README.md](./生产部署-README.md)** - 生产部署总览（从这里开始）⭐
+- **[生产环境部署指南.md](./生产环境部署指南.md)** - 详细部署步骤（5步快速部署）⭐
+- **[运维快速参考.md](./运维快速参考.md)** - 日常运维速查手册 ⭐
+- **[系统改进建议.md](./系统改进建议.md)** - 系统评估和改进建议 ⭐
+
+#### 维护脚本
+- `scripts/init-database.js` - 数据库初始化脚本
+- `scripts/cleanup-project.js` - 项目清理脚本
+- `scripts/backup-database.sh` - 数据库备份脚本（Linux）
+- `scripts/backup-database.bat` - 数据库备份脚本（Windows）
+
+#### 快速开始
+
+```bash
+# 1. 清理项目（删除开发文件）
+node scripts/cleanup-project.js
+
+# 2. 初始化数据库
+node scripts/init-database.js
+
+# 3. 按照部署指南部署
+# 参考：生产环境部署指南.md
+```
+
 ### Linux 服务器部署
 
-详细步骤请参考：[Linux部署教程.md](./Linux部署教程.md)
+详细步骤请参考：[Linux部署教程.md](./Linux部署教程.md) 或 [生产环境部署指南.md](./生产环境部署指南.md)
 
 **简要步骤：**
 
