@@ -61,6 +61,11 @@ const FILES_TO_DELETE = [
     'AI节点管理-快速开始.md',
     'AI节点管理系统-完善总结.md',
     
+    // 开发脚本（保留有用的）
+    'scripts/integrate-rewrite-failover.js',
+    'scripts/upgrade-token-load-balance.js',
+    'scripts/init-database-v2.js',
+    
     // 过时的开发文档
     '🎉令牌节点配置功能上线.md',
     '🎉项目完成通知.md',
