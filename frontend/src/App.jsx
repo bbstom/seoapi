@@ -123,7 +123,10 @@ const App = () => {
       // 没有 token 或 token 无效，显示登录页面
       setUser(null);
     } catch (error) {
-      console.error('认证失败:', error);
+      // 401 错误是正常的（未登录），不需要在控制台显示
+      if (error.response?.status !== 401) {
+        console.error('认证失败:', error);
+      }
       setUser(null);
     } finally {
       setLoading(false);
