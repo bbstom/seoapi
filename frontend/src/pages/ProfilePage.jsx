@@ -23,7 +23,7 @@ const ProfilePage = ({ user }) => {
     } catch (error) {
       console.error('加载用户信息失败:', error);
       if (error.response?.status === 401) {
-        console.log('未登录');
+        // 401 是正常的未登录状态，不需要额外日志
       }
     }
   };

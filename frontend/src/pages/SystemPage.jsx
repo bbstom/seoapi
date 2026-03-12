@@ -115,12 +115,15 @@ const SystemPage = ({ user, showToast, onConfigChange }) => {
         const userData = response.data.user;
         const defaultApiConfig = userData.defaultConfigId ? String(userData.defaultConfigId) : '';
         
-        console.log('加载默认配置:', {
-          defaultConfigId: userData.defaultConfigId,
-          defaultModel: userData.defaultModel,
-          defaultMode: userData.defaultMode,
-          apiConfigsLength: apiConfigs.length
-        });
+        // 开发环境才显示调试日志
+        if (import.meta.env.DEV) {
+          console.log('加载默认配置:', {
+            defaultConfigId: userData.defaultConfigId,
+            defaultModel: userData.defaultModel,
+            defaultMode: userData.defaultMode,
+            apiConfigsLength: apiConfigs.length
+          });
+        }
         
         setDefaults({
           defaultApiConfig: defaultApiConfig,
@@ -131,15 +134,15 @@ const SystemPage = ({ user, showToast, onConfigChange }) => {
         // 如果有默认 API 配置，加载其模型列表
         if (defaultApiConfig && apiConfigs.length > 0) {
           const selectedConfig = apiConfigs.find(c => c.id === parseInt(defaultApiConfig));
-          console.log('找到的配置:', selectedConfig);
-          if (selectedConfig && selectedConfig.models) {
-            console.log('设置模型列表:', selectedConfig.models.length, '个模型');
-            setModels(selectedConfig.models);
-          } else {
-            console.log('配置没有模型列表');
+          if (import.meta.env.DEV) {
+            console.log('找到的配置:', selectedConfig);
           }
-        } else {
-          console.log('没有默认 API 配置或 apiConfigs 未加载');
+          if (selectedConfig && selectedConfig.models) {
+            if (import.meta.env.DEV) {
+              console.log('设置模型列表:', selectedConfig.models.length, '个模型');
+            }
+            setModels(selectedConfig.models);
+          }
         }
       }
     } catch (error) {
@@ -915,11 +918,13 @@ const ApiConfigForm = ({ config, apiTypeNames, onSave, onCancel, loading }) => {
     models: config?.models || []
   });
   
-  // 调试：打印初始配置
+  // 调试：打印初始配置（仅开发环境）
   useEffect(() => {
-    console.log('ApiConfigForm 初始化 - config:', config);
-    console.log('ApiConfigForm 初始化 - config.models:', config?.models);
-    console.log('ApiConfigForm 初始化 - formData.models:', formData.models);
+    if (import.meta.env.DEV) {
+      console.log('ApiConfigForm 初始化 - config:', config);
+      console.log('ApiConfigForm 初始化 - config.models:', config?.models);
+      console.log('ApiConfigForm 初始化 - formData.models:', formData.models);
+    }
   }, []);
   
   const [testing, setTesting] = useState(false);
@@ -1003,9 +1008,11 @@ const ApiConfigForm = ({ config, apiTypeNames, onSave, onCancel, loading }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('提交表单数据:', formData);
-    console.log('模型列表:', formData.models);
-    console.log('模型数量:', formData.models?.length);
+    if (import.meta.env.DEV) {
+      console.log('提交表单数据:', formData);
+      console.log('模型列表:', formData.models);
+      console.log('模型数量:', formData.models?.length);
+    }
     onSave(formData);
   };
 
