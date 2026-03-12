@@ -34,10 +34,14 @@ async function upgradeDatabase() {
         // 检查并添加缺失的字段
         console.log('2. 检查并添加缺失的字段...');
         
-        // 检查 api_configs 表
-        await addColumnIfNotExists(connection, 'api_configs', 'weight', 'INT DEFAULT 1 AFTER priority');
-        await addColumnIfNotExists(connection, 'api_configs', 'avg_latency', 'INT DEFAULT 0 AFTER last_check_at');
-        await addColumnIfNotExists(connection, 'api_configs', 'description', 'TEXT AFTER models');
+        // 检查 api_configs 表（不使用 AFTER，避免依赖其他字段）
+        await addColumnIfNotExists(connection, 'api_configs', 'weight', 'INT DEFAULT 1');
+        await addColumnIfNotExists(connection, 'api_configs', 'description', 'TEXT');
+        await addColumnIfNotExists(connection, 'api_configs', 'health_status', "VARCHAR(20) DEFAULT 'unknown'");
+        await addColumnIfNotExists(connection, 'api_configs', 'last_check_at', 'TIMESTAMP NULL');
+        await addColumnIfNotExists(connection, 'api_configs', 'avg_latency', 'INT DEFAULT 0');
+        await addColumnIfNotExists(connection, 'api_configs', 'last_error', 'TEXT');
+        await addColumnIfNotExists(connection, 'api_configs', 'priority', 'INT DEFAULT 0');
         
         console.log('✓ 所有字段检查完成\n');
         
