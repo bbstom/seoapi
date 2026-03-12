@@ -147,6 +147,17 @@ const ProfilePage = ({ user }) => {
           </h3>
           
           <form onSubmit={(e) => { e.preventDefault(); changePassword(); }} className="space-y-4">
+            {/* 隐藏的用户名字段，用于密码管理器 */}
+            <input
+              type="text"
+              name="username"
+              value={userInfo?.username || user?.username || ''}
+              autoComplete="username"
+              readOnly
+              style={{ display: 'none' }}
+              aria-hidden="true"
+            />
+            
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 旧密码
