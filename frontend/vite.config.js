@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: '../public',
-    emptyOutDir: true,
+    emptyOutDir: false,  // 不清空目录，避免删除 .user.ini
     rollupOptions: {
       output: {
         manualChunks: {
