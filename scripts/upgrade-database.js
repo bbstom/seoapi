@@ -70,8 +70,7 @@ async function addColumnIfNotExists(connection, tableName, columnName, columnDef
     try {
         // 检查字段是否存在
         const [columns] = await connection.execute(
-            `SHOW COLUMNS FROM ${tableName} LIKE ?`,
-            [columnName]
+            `SHOW COLUMNS FROM ${tableName} LIKE '${columnName}'`
         );
         
         if (columns.length === 0) {
