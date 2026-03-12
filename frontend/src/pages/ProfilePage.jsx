@@ -146,7 +146,7 @@ const ProfilePage = ({ user }) => {
             修改密码
           </h3>
           
-          <div className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); changePassword(); }} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 旧密码
@@ -157,6 +157,7 @@ const ProfilePage = ({ user }) => {
                 onChange={(e) => setPasswords({ ...passwords, old: e.target.value })}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 placeholder="请输入旧密码"
+                autoComplete="current-password"
               />
             </div>
             
@@ -170,17 +171,18 @@ const ProfilePage = ({ user }) => {
                 onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 placeholder="请输入新密码（至少6位）"
+                autoComplete="new-password"
               />
             </div>
             
             <button
-              onClick={changePassword}
+              type="submit"
               disabled={loading}
               className="w-full py-3 rounded-xl font-semibold text-sm bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:bg-slate-300"
             >
               {loading ? '修改中...' : '修改密码'}
             </button>
-          </div>
+          </form>
         </div>
       </div>
 

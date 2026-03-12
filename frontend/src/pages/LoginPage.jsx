@@ -85,6 +85,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 placeholder="请输入用户名"
+                autoComplete="username"
                 required
                 autoFocus
               />
@@ -101,6 +102,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 placeholder="请输入密码"
+                autoComplete="current-password"
                 required
               />
             </div>
