@@ -220,7 +220,7 @@ const TokensPage = () => {
     }
   };
 
-  const handleLoadBalanceNodesChange = (tokenId, nodeId) => {
+  const handleLoadBalanceNodesChange = async (tokenId, nodeId) => {
     setEditingConfig(prev => {
       const currentNodes = prev[tokenId]?.loadBalanceNodes || [];
       const nodeIdInt = parseInt(nodeId);
@@ -236,9 +236,54 @@ const TokensPage = () => {
         }
       };
     });
+    
+    // 异步加载选中节点的模型列表
+    const currentNodes = editingConfig[tokenId]?.loadBalanceNodes || [];
+    const nodeIdInt = parseInt(nodeId);
+    const newNodes = currentNodes.includes(nodeIdInt)
+      ? currentNodes.filter(id => id !== nodeIdInt)
+      : [...currentNodes, nodeIdInt];
+    
+    if (newNodes.length > 0) {
+      // 加载所有选中节点的模型
+      const allModels = await loadMultipleNodeModels(newNodes);
+      setEditingConfig(prev => ({
+        ...prev,
+        [tokenId]: {
+          ...prev[tokenId],
+          availableModels: allModels
+        }
+      }));
+    } else {
+      setEditingConfig(prev => ({
+        ...prev,
+        [tokenId]: {
+          ...prev[tokenId],
+          availableModels: []
+        }
+      }));
+    }
+  };
+  
+  const loadMultipleNodeModels = async (nodeIds) => {
+    try {
+      const allModels = new Set();
+      
+      for (const nodeId of nodeIds) {
+        const config = apiConfigs.find(c => c.id === nodeId);
+        if (config && config.models && Array.isArray(config.models)) {
+          config.models.forEach(model => allModels.add(model));
+        }
+      }
+      
+      return Array.from(allModels).sort();
+    } catch (error) {
+      console.error('加载节点模型失败:', error);
+      return [];
+    }
   };
 
-  const startEditingNodeConfig = (token) => {
+  const startEditingNodeConfig = async (token) => {
     setEditingNodeConfig(token.id);
     
     const initialConfig = {
@@ -248,7 +293,8 @@ const TokensPage = () => {
       defaultModel: token.default_model || null,
       nodeId: token.fixed_node_id || null,
       model: token.fixed_model || null,
-      models: []
+      models: [],
+      availableModels: []
     };
     
     setEditingConfig(prev => ({
@@ -256,16 +302,28 @@ const TokensPage = () => {
       [token.id]: initialConfig
     }));
     
+    // 如果是固定节点模式，加载该节点的模型
     if (token.fixed_node_id) {
-      loadNodeModels(token.fixed_node_id).then(models => {
-        setEditingConfig(prev => ({
-          ...prev,
-          [token.id]: {
-            ...prev[token.id],
-            models
-          }
-        }));
-      });
+      const models = await loadNodeModels(token.fixed_node_id);
+      setEditingConfig(prev => ({
+        ...prev,
+        [token.id]: {
+          ...prev[token.id],
+          models
+        }
+      }));
+    }
+    
+    // 如果是负载均衡模式且已选择节点，加载这些节点的模型
+    if (token.node_strategy === 'load_balance' && token.load_balance_nodes && token.load_balance_nodes.length > 0) {
+      const allModels = await loadMultipleNodeModels(token.load_balance_nodes);
+      setEditingConfig(prev => ({
+        ...prev,
+        [token.id]: {
+          ...prev[token.id],
+          availableModels: allModels
+        }
+      }));
     }
   };
 
@@ -491,16 +549,28 @@ const TokensPage = () => {
                                   <label className="block text-xs text-slate-600 mb-1.5">
                                     默认模型 <span className="text-blue-500">(可选，不选则使用节点默认模型)</span>
                                   </label>
-                                  <input
-                                    type="text"
+                                  <select
                                     value={editingConfig[token.id]?.defaultModel || ''}
                                     onChange={(e) => setEditingConfig(prev => ({
                                       ...prev,
                                       [token.id]: { ...prev[token.id], defaultModel: e.target.value }
                                     }))}
-                                    placeholder="如: claude-sonnet-4"
-                                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                                  />
+                                    disabled={!editingConfig[token.id]?.loadBalanceNodes || editingConfig[token.id]?.loadBalanceNodes.length === 0}
+                                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                  >
+                                    <option value="">使用节点默认模型</option>
+                                    {(editingConfig[token.id]?.availableModels || []).map(model => (
+                                      <option key={model} value={model}>{model}</option>
+                                    ))}
+                                  </select>
+                                  {(!editingConfig[token.id]?.loadBalanceNodes || editingConfig[token.id]?.loadBalanceNodes.length === 0) && (
+                                    <p className="text-xs text-slate-400 mt-1">请先选择参与节点</p>
+                                  )}
+                                  {editingConfig[token.id]?.availableModels && editingConfig[token.id]?.availableModels.length > 0 && (
+                                    <p className="text-xs text-green-600 mt-1">
+                                      已加载 {editingConfig[token.id]?.availableModels.length} 个可用模型
+                                    </p>
+                                  )}
                                 </div>
                               </>
                             )}
