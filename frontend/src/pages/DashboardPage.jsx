@@ -171,12 +171,13 @@ const DashboardPage = ({ showToast }) => {
       const allLogs = response.data.logs || [];
       
       // 导出为 CSV
-      const headers = ['时间', '用户', '模型', '模式', '状态', '耗时(s)', '输入Tokens', '输出Tokens'];
+      const headers = ['时间', '用户', 'API节点', '模型', '模式', '状态', '耗时(s)', '输入Tokens', '输出Tokens'];
       const rows = allLogs.map(log => {
         const usage = log.usage ? (typeof log.usage === 'string' ? JSON.parse(log.usage) : log.usage) : {};
         return [
           formatDate(log.timestamp),
           log.username || '-',
+          log.node_name || '-',
           log.model || '-',
           log.mode || '-',
           (log.status === 'success' || log.errcode === '0') ? '成功' : '失败',
@@ -400,6 +401,7 @@ const DashboardPage = ({ showToast }) => {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">时间</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">用户</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">API节点</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">模型</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">模式</th>
                 <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase tracking-wider">状态</th>
@@ -432,6 +434,15 @@ const DashboardPage = ({ showToast }) => {
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-slate-800">
                         {log.username || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600">
+                        {log.node_name ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-purple-50 text-purple-700 text-xs font-medium">
+                            {log.node_name}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">-</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600 group relative">
                         <span className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium">
@@ -493,7 +504,7 @@ const DashboardPage = ({ showToast }) => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="9" className="px-4 py-12 text-center">
+                  <td colSpan="10" className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <Filter className="w-12 h-12 text-slate-300" />
                       <p className="text-slate-500">没有找到匹配的记录</p>

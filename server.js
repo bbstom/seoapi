@@ -1755,6 +1755,17 @@ app.put('/api/tokens/:id/node-config', verifySession, async (req, res) => {
             });
         }
         
+        // 调试日志：查看接收到的数据
+        console.log('[令牌配置] 接收到的数据:', {
+            nodeStrategy,
+            loadBalanceStrategy,
+            loadBalanceNodes: loadBalanceNodes,
+            loadBalanceNodesType: typeof loadBalanceNodes,
+            allowedModels: allowedModels,
+            allowedModelsType: typeof allowedModels,
+            defaultModel
+        });
+        
         const config = {
             nodeStrategy,
             loadBalanceStrategy: nodeStrategy === 'load_balance' ? (loadBalanceStrategy || 'round_robin') : null,
@@ -1764,6 +1775,8 @@ app.put('/api/tokens/:id/node-config', verifySession, async (req, res) => {
             fixedNodeId: nodeStrategy === 'fixed' ? fixedNodeId : null,
             fixedModel: nodeStrategy === 'fixed' ? fixedModel : null
         };
+        
+        console.log('[令牌配置] 准备保存的配置:', config);
         
         const success = await tokenManager.updateTokenNodeConfig(
             req.user.username, 
