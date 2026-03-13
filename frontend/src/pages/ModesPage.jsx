@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCcw, Plus, Edit, Trash2, Save, X, AlertCircle } from 'lucide-react';
+import { RefreshCcw, Plus, Edit, Trash2, Save, X, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import axios from 'axios';
 
 const API_BASE = '/api';
@@ -10,6 +10,7 @@ const ModesPage = () => {
   const [alert, setAlert] = useState(null);
   const [editingMode, setEditingMode] = useState(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [expandedPrompts, setExpandedPrompts] = useState({}); // 控制提示词展开/折叠
 
   useEffect(() => {
     loadModes();
@@ -31,6 +32,13 @@ const ModesPage = () => {
   const showAlert = (message, type) => {
     setAlert({ message, type });
     setTimeout(() => setAlert(null), 5000);
+  };
+
+  const togglePrompt = (modeId) => {
+    setExpandedPrompts(prev => ({
+      ...prev,
+      [modeId]: !prev[modeId]
+    }));
   };
 
   if (loading) {
@@ -70,7 +78,7 @@ const ModesPage = () => {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h3 className="text-lg font-bold text-slate-800">{mode.name}</h3>
-                  <code className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-mono rounded border border-slate-200">
+                  <code className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-mono rounded-md border border-blue-200">
                     {mode.id}
                   </code>
                   {mode.antiAI && (
@@ -80,9 +88,28 @@ const ModesPage = () => {
                   )}
                 </div>
                 <p className="text-sm text-slate-600 mb-3">{mode.description}</p>
-                <div className="bg-slate-50 p-4 rounded-xl">
-                  <p className="text-xs text-slate-500 mb-2 font-semibold">提示词：</p>
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">{mode.prompt}</p>
+                
+                {/* 提示词折叠区域 */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => togglePrompt(mode.id)}
+                    className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors flex items-center justify-between text-left"
+                  >
+                    <span className="text-xs text-slate-600 font-semibold">提示词详情</span>
+                    {expandedPrompts[mode.id] ? (
+                      <ChevronUp className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    )}
+                  </button>
+                  
+                  {expandedPrompts[mode.id] && (
+                    <div className="p-4 bg-white border-t border-slate-200">
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">
+                        {mode.prompt}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2 ml-4">
