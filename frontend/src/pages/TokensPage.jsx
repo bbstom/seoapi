@@ -35,6 +35,7 @@ const TokensPage = () => {
           node_strategy: t.nodeStrategy || t.node_strategy || 'load_balance',
           load_balance_strategy: t.loadBalanceStrategy || t.load_balance_strategy || 'round_robin',
           load_balance_nodes: t.loadBalanceNodes || t.load_balance_nodes || [],
+          allowed_models: t.allowedModels || t.allowed_models || [],
           default_model: t.defaultModel || t.default_model || '',
           fixed_node_id: t.fixedNodeId || t.fixed_node_id || null,
           fixed_model: t.fixedModel || t.fixed_model || ''
@@ -158,7 +159,8 @@ const TokensPage = () => {
         nodeStrategy: config.strategy,
         loadBalanceStrategy: config.loadBalanceStrategy,
         loadBalanceNodes: config.loadBalanceNodes,
-        defaultModel: config.defaultModel,
+        allowedModels: config.allowedModels || [],
+        defaultModel: config.defaultModel || '',
         fixedNodeId: config.nodeId,
         fixedModel: config.model
       });
@@ -265,6 +267,23 @@ const TokensPage = () => {
     }
   };
   
+  const handleModelSelection = (tokenId, model) => {
+    setEditingConfig(prev => {
+      const currentModels = prev[tokenId]?.allowedModels || [];
+      const newModels = currentModels.includes(model)
+        ? currentModels.filter(m => m !== model)
+        : [...currentModels, model];
+      
+      return {
+        ...prev,
+        [tokenId]: {
+          ...prev[tokenId],
+          allowedModels: newModels
+        }
+      };
+    });
+  };
+  
   const loadMultipleNodeModels = async (nodeIds) => {
     try {
       const allModels = new Set();
@@ -290,9 +309,10 @@ const TokensPage = () => {
       strategy: token.node_strategy || 'load_balance',
       loadBalanceStrategy: token.load_balance_strategy || 'round_robin',
       loadBalanceNodes: token.load_balance_nodes || [],
-      defaultModel: token.default_model || null,
+      allowedModels: token.allowed_models || [],
+      defaultModel: token.default_model || '',
       nodeId: token.fixed_node_id || null,
-      model: token.fixed_model || null,
+      model: token.fixed_model || '',
       models: [],
       availableModels: []
     };
@@ -544,10 +564,45 @@ const TokensPage = () => {
                                   </div>
                                 </div>
 
-                                {/* 默认模型 */}
+                                {/* 允许的模型（多选） */}
                                 <div>
                                   <label className="block text-xs text-slate-600 mb-1.5">
-                                    默认模型 <span className="text-blue-500">(可选，不选则使用节点默认模型)</span>
+                                    允许使用的模型 <span className="text-blue-500">(可多选，不选则允许所有模型)</span>
+                                  </label>
+                                  {(!editingConfig[token.id]?.loadBalanceNodes || editingConfig[token.id]?.loadBalanceNodes.length === 0) ? (
+                                    <div className="text-xs text-slate-400 py-2 px-3 bg-slate-50 rounded-lg">
+                                      请先选择参与节点
+                                    </div>
+                                  ) : (editingConfig[token.id]?.availableModels || []).length === 0 ? (
+                                    <div className="text-xs text-amber-600 py-2 px-3 bg-amber-50 rounded-lg">
+                                      所选节点暂无可用模型，请先在 API 管理中测试连接获取模型列表
+                                    </div>
+                                  ) : (
+                                    <div className="border border-slate-200 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+                                      {(editingConfig[token.id]?.availableModels || []).map(model => (
+                                        <label key={model} className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 p-2 rounded">
+                                          <input
+                                            type="checkbox"
+                                            checked={(editingConfig[token.id]?.allowedModels || []).includes(model)}
+                                            onChange={() => handleModelSelection(token.id, model)}
+                                            className="w-4 h-4 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500/20"
+                                          />
+                                          <span className="text-sm text-slate-700 font-mono">{model}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {editingConfig[token.id]?.allowedModels && editingConfig[token.id]?.allowedModels.length > 0 && (
+                                    <p className="text-xs text-green-600 mt-1">
+                                      已选择 {editingConfig[token.id]?.allowedModels.length} 个模型
+                                    </p>
+                                  )}
+                                </div>
+                                
+                                {/* 默认模型（单选） */}
+                                <div>
+                                  <label className="block text-xs text-slate-600 mb-1.5">
+                                    默认模型 <span className="text-blue-500">(可选，从允许的模型中选择一个作为默认)</span>
                                   </label>
                                   <select
                                     value={editingConfig[token.id]?.defaultModel || ''}
@@ -555,21 +610,16 @@ const TokensPage = () => {
                                       ...prev,
                                       [token.id]: { ...prev[token.id], defaultModel: e.target.value }
                                     }))}
-                                    disabled={!editingConfig[token.id]?.loadBalanceNodes || editingConfig[token.id]?.loadBalanceNodes.length === 0}
+                                    disabled={!editingConfig[token.id]?.allowedModels || editingConfig[token.id]?.allowedModels.length === 0}
                                     className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                                   >
-                                    <option value="">使用节点默认模型</option>
-                                    {(editingConfig[token.id]?.availableModels || []).map(model => (
+                                    <option value="">无默认模型</option>
+                                    {(editingConfig[token.id]?.allowedModels || []).map(model => (
                                       <option key={model} value={model}>{model}</option>
                                     ))}
                                   </select>
-                                  {(!editingConfig[token.id]?.loadBalanceNodes || editingConfig[token.id]?.loadBalanceNodes.length === 0) && (
-                                    <p className="text-xs text-slate-400 mt-1">请先选择参与节点</p>
-                                  )}
-                                  {editingConfig[token.id]?.availableModels && editingConfig[token.id]?.availableModels.length > 0 && (
-                                    <p className="text-xs text-green-600 mt-1">
-                                      已加载 {editingConfig[token.id]?.availableModels.length} 个可用模型
-                                    </p>
+                                  {(!editingConfig[token.id]?.allowedModels || editingConfig[token.id]?.allowedModels.length === 0) && (
+                                    <p className="text-xs text-slate-400 mt-1">请先选择允许使用的模型</p>
                                   )}
                                 </div>
                               </>
