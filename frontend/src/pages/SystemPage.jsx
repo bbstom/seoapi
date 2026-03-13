@@ -733,18 +733,31 @@ const SystemPage = ({ user, showToast, onConfigChange }) => {
             </div>
           )}
 
-          {/* 添加/编辑配置表单 */}
+          {/* 添加/编辑配置表单 - 弹窗模式 */}
           {(isAdding || editingConfig) && (
-            <ApiConfigForm
-              config={editingConfig}
-              apiTypeNames={apiTypeNames}
-              onSave={saveApiConfig}
-              onCancel={() => {
-                setIsAdding(false);
-                setEditingConfig(null);
+            <div 
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+              onClick={(e) => {
+                // 点击背景关闭弹窗
+                if (e.target === e.currentTarget) {
+                  setIsAdding(false);
+                  setEditingConfig(null);
+                }
               }}
-              loading={loading}
-            />
+            >
+              <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-in">
+                <ApiConfigForm
+                  config={editingConfig}
+                  apiTypeNames={apiTypeNames}
+                  onSave={saveApiConfig}
+                  onCancel={() => {
+                    setIsAdding(false);
+                    setEditingConfig(null);
+                  }}
+                  loading={loading}
+                />
+              </div>
+            </div>
           )}
 
           {/* 配置说明 */}
@@ -1017,17 +1030,21 @@ const ApiConfigForm = ({ config, apiTypeNames, onSave, onCancel, loading }) => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-bold text-slate-800 text-base">
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-5">
+        <h3 className="font-bold text-slate-800 text-xl">
           {config ? '编辑 AI 节点' : '添加 AI 节点'}
         </h3>
-        <button onClick={onCancel} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
-          <X className="w-4 h-4 text-slate-400" />
+        <button 
+          onClick={onCancel} 
+          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          type="button"
+        >
+          <X className="w-5 h-5 text-slate-400" />
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* 第一行：节点名称 | API 类型 | 测试按钮 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
           <div className="md:col-span-4">
@@ -1320,20 +1337,20 @@ const ApiConfigForm = ({ config, apiTypeNames, onSave, onCancel, loading }) => {
         </div>
 
         {/* 按钮 */}
-        <div className="flex gap-2 pt-2 border-t border-slate-100">
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 py-2.5 rounded-lg font-medium text-sm bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:bg-slate-300"
-          >
-            {loading ? '保存中...' : '保存节点'}
-          </button>
+        <div className="flex gap-3 pt-4 border-t border-slate-200 mt-6">
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-2.5 rounded-lg font-medium text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+            className="flex-1 py-3 rounded-xl font-semibold text-sm border-2 border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
           >
             取消
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-1 py-3 rounded-xl font-semibold text-sm bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
+          >
+            {loading ? '保存中...' : (config ? '保存修改' : '添加节点')}
           </button>
         </div>
       </form>

@@ -91,6 +91,7 @@ async function initDatabase() {
         fixed_model VARCHAR(100) NULL DEFAULT NULL COMMENT '固定模型（当使用固定节点时可指定模型）',
         load_balance_nodes JSON NULL COMMENT '负载均衡节点池（节点ID数组）',
         load_balance_strategy VARCHAR(50) DEFAULT 'round_robin' COMMENT '负载均衡策略：round_robin(轮询), weighted(加权), least_connections(最少连接)',
+        allowed_models JSON NULL COMMENT '允许使用的模型列表（JSON数组）',
         default_model VARCHAR(255) NULL DEFAULT NULL COMMENT '默认使用的模型',
         PRIMARY KEY (id),
         UNIQUE KEY api_key (api_key),
@@ -144,6 +145,8 @@ async function initDatabase() {
         username VARCHAR(100) NOT NULL,
         status ENUM('success','error') NOT NULL,
         base_url VARCHAR(255) NULL DEFAULT NULL,
+        node_id INT NULL COMMENT 'API节点ID',
+        node_name VARCHAR(100) NULL COMMENT 'API节点名称',
         api_type VARCHAR(50) NULL DEFAULT NULL,
         model VARCHAR(100) NULL DEFAULT NULL,
         mode VARCHAR(100) NULL DEFAULT NULL,
@@ -165,7 +168,8 @@ async function initDatabase() {
         INDEX idx_created_at (created_at),
         INDEX idx_model (model),
         INDEX idx_mode (mode),
-        INDEX idx_request_id (request_id)
+        INDEX idx_request_id (request_id),
+        INDEX idx_node_id (node_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     console.log('✓ api_logs');
