@@ -34,10 +34,10 @@ const TokensPage = () => {
           status: t.status || 'active',
           node_strategy: t.nodeStrategy || t.node_strategy || 'load_balance',
           load_balance_strategy: t.loadBalanceStrategy || t.load_balance_strategy || 'round_robin',
-          load_balance_nodes: t.loadBalanceNodes || t.load_balance_nodes || null,
-          default_model: t.defaultModel || t.default_model || null,
+          load_balance_nodes: t.loadBalanceNodes || t.load_balance_nodes || [],
+          default_model: t.defaultModel || t.default_model || '',
           fixed_node_id: t.fixedNodeId || t.fixed_node_id || null,
-          fixed_model: t.fixedModel || t.fixed_model || null
+          fixed_model: t.fixedModel || t.fixed_model || ''
         }));
         setTokens(mappedTokens);
       }
@@ -58,7 +58,7 @@ const TokensPage = () => {
           name: c.name,
           apiUrl: c.api_url,
           apiType: c.api_type,
-          availableModels: c.available_models,
+          models: c.available_models || c.models || [],
           isDefault: c.is_default,
           isActive: c.is_active !== false,
           createdAt: c.created_at,
