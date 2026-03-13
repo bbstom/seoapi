@@ -70,6 +70,9 @@ const ModesPage = () => {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h3 className="text-lg font-bold text-slate-800">{mode.name}</h3>
+                  <code className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-mono rounded border border-slate-200">
+                    {mode.id}
+                  </code>
                   {mode.antiAI && (
                     <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">
                       ⭐ 反AI检测
@@ -128,6 +131,7 @@ const ModesPage = () => {
         <ul className="text-sm text-blue-700 space-y-2">
           <li>• 改写模式定义了 AI 如何处理文本改写任务</li>
           <li>• 每个模式包含特定的提示词上下文，指导 AI 的改写风格</li>
+          <li>• <strong>模式ID</strong>（如 <code className="px-1.5 py-0.5 bg-white rounded text-xs">seo_original</code>）用于 API 调用和数据看板中识别模式</li>
           <li>• 标记为"反AI检测"的模式会生成更接近人类写作风格的内容</li>
           <li>• 可以根据不同场景创建多个模式（如：学术、营销、新闻等）</li>
           <li>• 模式配置存储在 config/rewrite-modes.js 文件中</li>
