@@ -1725,6 +1725,7 @@ app.put('/api/tokens/:id/node-config', verifySession, async (req, res) => {
             nodeStrategy, 
             loadBalanceStrategy,
             loadBalanceNodes,
+            allowedModels,
             defaultModel,
             fixedNodeId, 
             fixedModel 
@@ -1758,6 +1759,7 @@ app.put('/api/tokens/:id/node-config', verifySession, async (req, res) => {
             nodeStrategy,
             loadBalanceStrategy: nodeStrategy === 'load_balance' ? (loadBalanceStrategy || 'round_robin') : null,
             loadBalanceNodes: nodeStrategy === 'load_balance' ? loadBalanceNodes : null,
+            allowedModels: allowedModels || null,
             defaultModel: defaultModel || null,
             fixedNodeId: nodeStrategy === 'fixed' ? fixedNodeId : null,
             fixedModel: nodeStrategy === 'fixed' ? fixedModel : null
